@@ -18,7 +18,7 @@ SovereignDesk is a live ICP mainnet MVP with:
 - Trust Center with canister IDs and module hashes.
 - Mainnet QA and product health checks.
 
-Production status: suitable for public review and technical validation only. Do not use it for real confidential client data until controller hardening and private-data encryption are complete.
+Production status: suitable for public review and technical validation only. Encrypted vault objects exist, but do not use it for real regulated client data until vetKeys-backed key release and production governance are complete.
 
 Mainnet:
 
@@ -38,7 +38,7 @@ Maintainer-only mainnet validation:
 
 Latest deployed hardening:
 
-- Backend module hash: `0x4aae46ec17aa03ab3d5483fb3841ab378102c8e57341b24c663d754491d8ae07`
+- Backend module hash: `0xd32ca3c209b2ae9417f2de4f40f3528ed3712070228f23f02a2b7a8d80221fa8`
 - Production bootstrap now requires the configured bootstrap owner.
 - `seed_demo` requires admin when a workspace already exists.
 - Approval responses cannot use `Pending` as a decision.
@@ -77,7 +77,7 @@ Recently reduced risks:
 - RBAC is no longer purely flat: Owner/Admin/Operator/Client/Reviewer role types exist and new operator approvals do not grant full admin semantics.
 - `seed_demo` is admin-gated after initialization and no longer lets an arbitrary caller reseed an existing workspace.
 - Upgrade safety exposes schema version and owner-only state snapshots.
-- Document Vault v1 now records document versions and hash verification evidence without storing document bytes.
+- Document Vault v2 now records document versions, hash verification evidence, and optional encrypted ciphertext objects.
 - Plaintext development identity has been removed from mainnet canister controllers.
 
 ## P0 Before Real Production Data

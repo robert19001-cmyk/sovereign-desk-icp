@@ -107,6 +107,51 @@ export interface DocumentVersion {
   'documentId' : bigint,
   'sizeBytes' : bigint,
 }
+export interface EncryptedDocumentObject {
+  'id' : bigint,
+  'iv' : Uint8Array | number[],
+  'versionId' : [] | [bigint],
+  'algorithm' : string,
+  'ciphertextHash' : string,
+  'ciphertext' : Uint8Array | number[],
+  'createdAt' : bigint,
+  'createdBy' : Principal,
+  'keyDerivationContext' : string,
+  'documentId' : bigint,
+}
+export interface EncryptedDocumentObjectInfo {
+  'id' : bigint,
+  'versionId' : [] | [bigint],
+  'algorithm' : string,
+  'ciphertextHash' : string,
+  'ciphertextSize' : bigint,
+  'ivSize' : bigint,
+  'createdAt' : bigint,
+  'createdBy' : Principal,
+  'keyDerivationContext' : string,
+  'documentId' : bigint,
+}
+export interface GovernanceProposal {
+  'id' : bigint,
+  'status' : GovernanceProposalStatus,
+  'title' : string,
+  'body' : string,
+  'kind' : GovernanceProposalKind,
+  'createdAt' : bigint,
+  'createdBy' : Principal,
+  'reviewComment' : string,
+  'reviewedAt' : [] | [bigint],
+  'reviewedBy' : [] | [Principal],
+}
+export type GovernanceProposalKind = { 'SNS' : null } |
+  { 'Multisig' : null } |
+  { 'ControllerMigration' : null } |
+  { 'VaultPolicy' : null } |
+  { 'Other' : null } |
+  { 'Launchtrail' : null };
+export type GovernanceProposalStatus = { 'Open' : null } |
+  { 'Approved' : null } |
+  { 'Rejected' : null };
 export interface Note {
   'id' : bigint,
   'body' : string,
@@ -203,8 +248,10 @@ export interface StateCounts {
   'documentVersions' : bigint,
   'documentArchives' : bigint,
   'documentHashVerifications' : bigint,
+  'encryptedDocumentObjects' : bigint,
   'notes' : bigint,
   'accessRequests' : bigint,
+  'governanceProposals' : bigint,
   'roleGrants' : bigint,
   'approvals' : bigint,
   'clients' : bigint,
@@ -221,14 +268,18 @@ export interface StateSnapshot {
   'nextAuditId' : bigint,
   'nextTaskId' : bigint,
   'documentVersions' : Array<DocumentVersion>,
+  'nextEncryptedDocumentObjectId' : bigint,
   'documentArchives' : Array<DocumentArchiveRecord>,
+  'nextGovernanceProposalId' : bigint,
   'exportedAt' : bigint,
   'documentHashVerifications' : Array<DocumentHashVerification>,
+  'encryptedDocumentObjects' : Array<EncryptedDocumentObject>,
   'nextApprovalId' : bigint,
   'notes' : Array<Note>,
   'workspace' : [] | [Workspace],
   'nextProjectId' : bigint,
   'accessRequests' : Array<AccessRequest>,
+  'governanceProposals' : Array<GovernanceProposal>,
   'nextClientId' : bigint,
   'schemaVersion' : bigint,
   'rejectedAccessRequestIds' : Array<bigint>,
@@ -301,15 +352,24 @@ export interface _SERVICE {
     [bigint, string, string, bigint, string, string],
     DocumentRecord
   >,
+  'create_governance_proposal' : ActorMethod<
+    [GovernanceProposalKind, string, string],
+    GovernanceProposal
+  >,
   'create_project' : ActorMethod<[bigint, string, string], Project>,
   'create_task' : ActorMethod<[bigint, string, string], Task>,
   'export_state_snapshot' : ActorMethod<[], StateSnapshot>,
   'get_client_portal' : ActorMethod<[bigint], [] | [ClientPortalView]>,
+  'get_encrypted_document_object' : ActorMethod<
+    [bigint],
+    [] | [EncryptedDocumentObject]
+  >,
   'get_my_client_portals' : ActorMethod<[], Array<ClientPortalView>>,
   'get_my_roles' : ActorMethod<[], Array<RoleGrant>>,
   'get_my_workspace' : ActorMethod<[], [] | [WorkspaceView]>,
   'get_public_demo' : ActorMethod<[], [] | [PublicDemoView]>,
   'get_system_info' : ActorMethod<[], SystemInfo>,
+  'get_vetkey_derivation_context' : ActorMethod<[bigint, Principal], string>,
   'grant_role' : ActorMethod<
     [Principal, Role, [] | [bigint]],
     Array<RoleGrant>
@@ -325,11 +385,20 @@ export interface _SERVICE {
     Array<DocumentHashVerification>
   >,
   'list_document_versions' : ActorMethod<[bigint], Array<DocumentVersion>>,
+  'list_encrypted_document_objects' : ActorMethod<
+    [bigint],
+    Array<EncryptedDocumentObjectInfo>
+  >,
+  'list_governance_proposals' : ActorMethod<[], Array<GovernanceProposal>>,
   'list_role_grants' : ActorMethod<[], Array<RoleGrant>>,
   'migrate_schema_version' : ActorMethod<[], bigint>,
   'reject_access_request' : ActorMethod<[bigint, string], AccessRequest>,
   'request_operator_access' : ActorMethod<[string, string], AccessRequest>,
   'respond_approval' : ActorMethod<[bigint, ApprovalStatus, string], Approval>,
+  'review_governance_proposal' : ActorMethod<
+    [bigint, GovernanceProposalStatus, string],
+    GovernanceProposal
+  >,
   'revoke_client_invite' : ActorMethod<[bigint], ClientInvite>,
   'revoke_role' : ActorMethod<
     [Principal, Role, [] | [bigint]],
@@ -337,6 +406,18 @@ export interface _SERVICE {
   >,
   'rotate_client_principal' : ActorMethod<[bigint, Principal], Client>,
   'seed_demo' : ActorMethod<[], WorkspaceView>,
+  'store_encrypted_document_object' : ActorMethod<
+    [
+      bigint,
+      [] | [bigint],
+      string,
+      string,
+      Uint8Array | number[],
+      Uint8Array | number[],
+      string,
+    ],
+    EncryptedDocumentObjectInfo
+  >,
   'update_client' : ActorMethod<[bigint, string, string, string], Client>,
   'update_document_record' : ActorMethod<
     [bigint, string, string, string, string],

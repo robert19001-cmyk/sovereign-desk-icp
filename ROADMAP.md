@@ -23,9 +23,9 @@ SovereignDesk AI is moving from a public canister-native mainnet MVP toward a pr
 
 ## Phase 3: Data and Documents
 
-- Extend Document Vault v1 with certified document metadata.
+- Extend Document Vault v2 with certified document metadata.
 - Add file upload flow through asset or storage canister design.
-- Add client-side encryption and vetKeys for document keys.
+- Replace passphrase-derived demo keys with vetKeys-backed document key release.
 - Separate public demo state from real workspace state.
 - Expand state snapshot/export into an encrypted backup and restore/migration runbook.
 

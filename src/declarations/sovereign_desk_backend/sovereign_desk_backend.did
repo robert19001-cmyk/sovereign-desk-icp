@@ -52,7 +52,9 @@ type StateSnapshot =
    documentHashVerifications: vec DocumentHashVerification;
    documentVersions: vec DocumentVersion;
    documents: vec DocumentRecord;
+   encryptedDocumentObjects: vec EncryptedDocumentObject;
    exportedAt: int;
+   governanceProposals: vec GovernanceProposal;
    nextAccessRequestId: nat;
    nextAgentResponseId: nat;
    nextApprovalId: nat;
@@ -62,6 +64,8 @@ type StateSnapshot =
    nextDocumentId: nat;
    nextDocumentVerificationId: nat;
    nextDocumentVersionId: nat;
+   nextEncryptedDocumentObjectId: nat;
+   nextGovernanceProposalId: nat;
    nextNoteId: nat;
    nextProjectId: nat;
    nextTaskId: nat;
@@ -85,6 +89,8 @@ type StateCounts =
    documentHashVerifications: nat;
    documentVersions: nat;
    documents: nat;
+   encryptedDocumentObjects: nat;
+   governanceProposals: nat;
    notes: nat;
    projects: nat;
    roleGrants: nat;
@@ -197,6 +203,60 @@ type Note =
    createdAt: int;
    id: nat;
    projectId: nat;
+ };
+type GovernanceProposalStatus =
+ variant {
+   Approved;
+   Open;
+   Rejected;
+ };
+type GovernanceProposalKind =
+ variant {
+   ControllerMigration;
+   Launchtrail;
+   Multisig;
+   Other;
+   SNS;
+   VaultPolicy;
+ };
+type GovernanceProposal =
+ record {
+   body: text;
+   createdAt: int;
+   createdBy: principal;
+   id: nat;
+   kind: GovernanceProposalKind;
+   reviewComment: text;
+   reviewedAt: opt int;
+   reviewedBy: opt principal;
+   status: GovernanceProposalStatus;
+   title: text;
+ };
+type EncryptedDocumentObjectInfo =
+ record {
+   algorithm: text;
+   ciphertextHash: text;
+   ciphertextSize: nat;
+   createdAt: int;
+   createdBy: principal;
+   documentId: nat;
+   id: nat;
+   ivSize: nat;
+   keyDerivationContext: text;
+   versionId: opt nat;
+ };
+type EncryptedDocumentObject =
+ record {
+   algorithm: text;
+   ciphertext: blob;
+   ciphertextHash: text;
+   createdAt: int;
+   createdBy: principal;
+   documentId: nat;
+   id: nat;
+   iv: blob;
+   keyDerivationContext: text;
+   versionId: opt nat;
  };
 type DocumentVersion =
  record {
@@ -339,15 +399,21 @@ service : {
   create_document_record: (projectId: nat, name: text, mimeType: text,
    sizeBytes: nat, encryptedKeyRef: text, contentHash: text) ->
    (DocumentRecord);
+  create_governance_proposal: (kind: GovernanceProposalKind, title: text,
+   body: text) -> (GovernanceProposal);
   create_project: (clientId: nat, name: text, summary: text) -> (Project);
   create_task: (projectId: nat, title: text, assignee: text) -> (Task);
   export_state_snapshot: () -> (StateSnapshot) query;
   get_client_portal: (clientId: nat) -> (opt ClientPortalView) query;
+  get_encrypted_document_object: (objectId: nat) ->
+   (opt EncryptedDocumentObject) query;
   get_my_client_portals: () -> (vec ClientPortalView) query;
   get_my_roles: () -> (vec RoleGrant) query;
   get_my_workspace: () -> (opt WorkspaceView) query;
   get_public_demo: () -> (opt PublicDemoView) query;
   get_system_info: () -> (SystemInfo) query;
+  get_vetkey_derivation_context: (documentId: nat, recipient: principal) ->
+   (text) query;
   grant_role: ("principal": principal, role: Role, clientId: opt nat) ->
    (vec RoleGrant);
   init_workspace: (name: text, profile: text) -> (Workspace);
@@ -359,18 +425,26 @@ service : {
   list_document_verifications: (documentId: nat) ->
    (vec DocumentHashVerification) query;
   list_document_versions: (documentId: nat) -> (vec DocumentVersion) query;
+  list_encrypted_document_objects: (documentId: nat) ->
+   (vec EncryptedDocumentObjectInfo) query;
+  list_governance_proposals: () -> (vec GovernanceProposal) query;
   list_role_grants: () -> (vec RoleGrant) query;
   migrate_schema_version: () -> (nat);
   reject_access_request: (requestId: nat, reason: text) -> (AccessRequest);
   request_operator_access: (email: text, note: text) -> (AccessRequest);
   respond_approval: (approvalId: nat, decision: ApprovalStatus, comment:
    text) -> (Approval);
+  review_governance_proposal: (proposalId: nat, status:
+   GovernanceProposalStatus, comment: text) -> (GovernanceProposal);
   revoke_client_invite: (inviteId: nat) -> (ClientInvite);
   revoke_role: ("principal": principal, role: Role, clientId: opt nat) ->
    (vec RoleGrant);
   rotate_client_principal: (clientId: nat, "principal": principal) ->
    (Client);
   seed_demo: () -> (WorkspaceView);
+  store_encrypted_document_object: (documentId: nat, versionId: opt nat,
+   algorithm: text, keyDerivationContext: text, iv: blob, ciphertext:
+   blob, ciphertextHash: text) -> (EncryptedDocumentObjectInfo);
   update_client: (clientId: nat, name: text, contactName: text, contactEmail:
    text) -> (Client);
   update_document_record: (documentId: nat, name: text, mimeType: text,

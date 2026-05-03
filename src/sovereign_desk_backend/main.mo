@@ -1,4 +1,5 @@
 import Array "mo:base/Array";
+import Blob "mo:base/Blob";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
@@ -7,7 +8,7 @@ import Time "mo:base/Time";
 
 persistent actor {
   let bootstrapOwner : Principal = Principal.fromText("up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe");
-  var currentSchemaVersion : Nat = 4;
+  var currentSchemaVersion : Nat = 5;
 
   public type Workspace = {
     id : Nat;
@@ -102,6 +103,32 @@ persistent actor {
     verifiedAt : Int;
   };
 
+  public type EncryptedDocumentObject = {
+    id : Nat;
+    documentId : Nat;
+    versionId : ?Nat;
+    algorithm : Text;
+    keyDerivationContext : Text;
+    iv : Blob;
+    ciphertext : Blob;
+    ciphertextHash : Text;
+    createdBy : Principal;
+    createdAt : Int;
+  };
+
+  public type EncryptedDocumentObjectInfo = {
+    id : Nat;
+    documentId : Nat;
+    versionId : ?Nat;
+    algorithm : Text;
+    keyDerivationContext : Text;
+    ivSize : Nat;
+    ciphertextSize : Nat;
+    ciphertextHash : Text;
+    createdBy : Principal;
+    createdAt : Int;
+  };
+
   public type Note = {
     id : Nat;
     projectId : Nat;
@@ -117,6 +144,30 @@ persistent actor {
     target : Text;
     summary : Text;
     createdAt : Int;
+  };
+
+  public type GovernanceProposalKind = {
+    #ControllerMigration;
+    #Multisig;
+    #SNS;
+    #Launchtrail;
+    #VaultPolicy;
+    #Other;
+  };
+
+  public type GovernanceProposalStatus = { #Open; #Approved; #Rejected };
+
+  public type GovernanceProposal = {
+    id : Nat;
+    kind : GovernanceProposalKind;
+    title : Text;
+    body : Text;
+    status : GovernanceProposalStatus;
+    createdBy : Principal;
+    createdAt : Int;
+    reviewedBy : ?Principal;
+    reviewedAt : ?Int;
+    reviewComment : Text;
   };
 
   public type WorkspaceView = {
@@ -144,6 +195,8 @@ persistent actor {
     documentVersions : Nat;
     documentArchives : Nat;
     documentHashVerifications : Nat;
+    encryptedDocumentObjects : Nat;
+    governanceProposals : Nat;
   };
 
   public type SystemInfo = {
@@ -173,6 +226,8 @@ persistent actor {
     documentVersions : [DocumentVersion];
     documentArchives : [DocumentArchiveRecord];
     documentHashVerifications : [DocumentHashVerification];
+    encryptedDocumentObjects : [EncryptedDocumentObject];
+    governanceProposals : [GovernanceProposal];
     nextWorkspaceId : Nat;
     nextClientId : Nat;
     nextProjectId : Nat;
@@ -186,6 +241,8 @@ persistent actor {
     nextClientInviteId : Nat;
     nextDocumentVersionId : Nat;
     nextDocumentVerificationId : Nat;
+    nextEncryptedDocumentObjectId : Nat;
+    nextGovernanceProposalId : Nat;
   };
 
   public type ClientPortalView = {
@@ -327,6 +384,8 @@ persistent actor {
   var documentVersions : [DocumentVersion] = [];
   var documentArchives : [DocumentArchiveRecord] = [];
   var documentHashVerifications : [DocumentHashVerification] = [];
+  var encryptedDocumentObjects : [EncryptedDocumentObject] = [];
+  var governanceProposals : [GovernanceProposal] = [];
 
   var nextWorkspaceId : Nat = 1;
   var nextClientId : Nat = 1;
@@ -341,6 +400,8 @@ persistent actor {
   var nextClientInviteId : Nat = 1;
   var nextDocumentVersionId : Nat = 1;
   var nextDocumentVerificationId : Nat = 1;
+  var nextEncryptedDocumentObjectId : Nat = 1;
+  var nextGovernanceProposalId : Nat = 1;
 
   func now() : Int {
     Time.now()
@@ -361,6 +422,8 @@ persistent actor {
       documentVersions = Array.size(documentVersions);
       documentArchives = Array.size(documentArchives);
       documentHashVerifications = Array.size(documentHashVerifications);
+      encryptedDocumentObjects = Array.size(encryptedDocumentObjects);
+      governanceProposals = Array.size(governanceProposals);
     }
   };
 
@@ -530,6 +593,10 @@ persistent actor {
     Array.find<DocumentVersion>(documentVersions, func(version) { version.id == versionId })
   };
 
+  func encryptedDocumentObjectById(objectId : Nat) : ?EncryptedDocumentObject {
+    Array.find<EncryptedDocumentObject>(encryptedDocumentObjects, func(item) { item.id == objectId })
+  };
+
   func clientById(clientId : Nat) : ?Client {
     Array.find<Client>(clients, func(client) { client.id == clientId })
   };
@@ -660,6 +727,37 @@ persistent actor {
     }
   };
 
+  func assertDocumentVersionBelongs(documentId : Nat, versionId : ?Nat) {
+    switch (versionId) {
+      case null {};
+      case (?id) {
+        switch (documentVersionById(id)) {
+          case (?version) {
+            if (version.documentId != documentId) {
+              Debug.trap("version does not belong to document");
+            };
+          };
+          case null { Debug.trap("document version not found") };
+        };
+      };
+    };
+  };
+
+  func encryptedDocumentInfo(item : EncryptedDocumentObject) : EncryptedDocumentObjectInfo {
+    {
+      id = item.id;
+      documentId = item.documentId;
+      versionId = item.versionId;
+      algorithm = item.algorithm;
+      keyDerivationContext = item.keyDerivationContext;
+      ivSize = Array.size(Blob.toArray(item.iv));
+      ciphertextSize = Array.size(Blob.toArray(item.ciphertext));
+      ciphertextHash = item.ciphertextHash;
+      createdBy = item.createdBy;
+      createdAt = item.createdAt;
+    }
+  };
+
   func bindClientPrincipal(bindingActor : Principal, clientId : Nat, principal : Principal) : Client {
     var updated : ?Client = null;
     clients := Array.map<Client, Client>(
@@ -783,8 +881,8 @@ persistent actor {
 
   public shared ({ caller }) func migrate_schema_version() : async Nat {
     requireOwner(caller);
-    currentSchemaVersion := 4;
-    addAudit(caller, "system.schema.migrated", "schema:4", "Schema version migrated");
+    currentSchemaVersion := 5;
+    addAudit(caller, "system.schema.migrated", "schema:5", "Schema version migrated");
     currentSchemaVersion
   };
 
@@ -809,6 +907,8 @@ persistent actor {
       documentVersions;
       documentArchives;
       documentHashVerifications;
+      encryptedDocumentObjects;
+      governanceProposals;
       nextWorkspaceId;
       nextClientId;
       nextProjectId;
@@ -822,6 +922,8 @@ persistent actor {
       nextClientInviteId;
       nextDocumentVersionId;
       nextDocumentVerificationId;
+      nextEncryptedDocumentObjectId;
+      nextGovernanceProposalId;
     }
   };
 
@@ -1688,6 +1790,145 @@ persistent actor {
   public shared query ({ caller }) func list_document_archives() : async [DocumentArchiveRecord] {
     requireAdmin(caller);
     documentArchives
+  };
+
+  public shared query ({ caller }) func get_vetkey_derivation_context(documentId : Nat, recipient : Principal) : async Text {
+    requireAuthenticated(caller);
+    ignore requireDocumentAccess(caller, documentId);
+    "sovereign-desk:v1:document:" # Nat.toText(documentId) # ":recipient:" # Principal.toText(recipient)
+  };
+
+  public shared ({ caller }) func store_encrypted_document_object(
+    documentId : Nat,
+    versionId : ?Nat,
+    algorithm : Text,
+    keyDerivationContext : Text,
+    iv : Blob,
+    ciphertext : Blob,
+    ciphertextHash : Text,
+  ) : async EncryptedDocumentObjectInfo {
+    requireAuthenticated(caller);
+    ignore requireDocumentAccess(caller, documentId);
+    assertDocumentVersionBelongs(documentId, versionId);
+    if (isDocumentArchived(documentId)) {
+      Debug.trap("document archived");
+    };
+    requireText("algorithm", algorithm, 80);
+    requireText("key derivation context", keyDerivationContext, 300);
+    requireText("ciphertext hash", ciphertextHash, 240);
+    requireSha256Hash(ciphertextHash);
+    let ivSize = Array.size(Blob.toArray(iv));
+    if (ivSize < 12 or ivSize > 32) {
+      Debug.trap("iv must be 12 to 32 bytes");
+    };
+    if (Array.size(Blob.toArray(ciphertext)) > 2_100_000) {
+      Debug.trap("ciphertext too large for MVP encrypted object limit");
+    };
+    let encryptedObject : EncryptedDocumentObject = {
+      id = nextEncryptedDocumentObjectId;
+      documentId;
+      versionId;
+      algorithm;
+      keyDerivationContext;
+      iv;
+      ciphertext;
+      ciphertextHash;
+      createdBy = caller;
+      createdAt = now();
+    };
+    nextEncryptedDocumentObjectId += 1;
+    encryptedDocumentObjects := Array.append(encryptedDocumentObjects, [encryptedObject]);
+    addAudit(caller, "document.encrypted.stored", "document:" # Nat.toText(documentId), "Encrypted document object stored");
+    encryptedDocumentInfo(encryptedObject)
+  };
+
+  public shared query ({ caller }) func list_encrypted_document_objects(documentId : Nat) : async [EncryptedDocumentObjectInfo] {
+    requireAuthenticated(caller);
+    ignore requireDocumentAccess(caller, documentId);
+    Array.map<EncryptedDocumentObject, EncryptedDocumentObjectInfo>(
+      Array.filter<EncryptedDocumentObject>(encryptedDocumentObjects, func(item) { item.documentId == documentId }),
+      encryptedDocumentInfo,
+    )
+  };
+
+  public shared query ({ caller }) func get_encrypted_document_object(objectId : Nat) : async ?EncryptedDocumentObject {
+    requireAuthenticated(caller);
+    switch (encryptedDocumentObjectById(objectId)) {
+      case (?item) {
+        ignore requireDocumentAccess(caller, item.documentId);
+        ?item
+      };
+      case null { null };
+    }
+  };
+
+  public shared ({ caller }) func create_governance_proposal(kind : GovernanceProposalKind, title : Text, body : Text) : async GovernanceProposal {
+    requireGovernance(caller);
+    requireText("proposal title", title, 180);
+    requireText("proposal body", body, 1_500);
+    let proposal : GovernanceProposal = {
+      id = nextGovernanceProposalId;
+      kind;
+      title;
+      body;
+      status = #Open;
+      createdBy = caller;
+      createdAt = now();
+      reviewedBy = null;
+      reviewedAt = null;
+      reviewComment = "";
+    };
+    nextGovernanceProposalId += 1;
+    governanceProposals := Array.append(governanceProposals, [proposal]);
+    addAudit(caller, "governance.proposal.created", "proposal:" # Nat.toText(proposal.id), title);
+    proposal
+  };
+
+  public shared query ({ caller }) func list_governance_proposals() : async [GovernanceProposal] {
+    requireGovernance(caller);
+    governanceProposals
+  };
+
+  public shared ({ caller }) func review_governance_proposal(
+    proposalId : Nat,
+    status : GovernanceProposalStatus,
+    comment : Text,
+  ) : async GovernanceProposal {
+    requireGovernance(caller);
+    requireText("review comment", comment, 500);
+    switch (status) {
+      case (#Open) { Debug.trap("proposal review cannot return to Open") };
+      case (_) {};
+    };
+    var updated : ?GovernanceProposal = null;
+    governanceProposals := Array.map<GovernanceProposal, GovernanceProposal>(
+      governanceProposals,
+      func(proposal) {
+        if (proposal.id != proposalId) {
+          proposal
+        } else {
+          if (proposal.status != #Open) {
+            Debug.trap("proposal already reviewed");
+          };
+          let next : GovernanceProposal = {
+            proposal with
+            status;
+            reviewedBy = ?caller;
+            reviewedAt = ?now();
+            reviewComment = comment;
+          };
+          updated := ?next;
+          next
+        }
+      },
+    );
+    switch (updated) {
+      case (?proposal) {
+        addAudit(caller, "governance.proposal.reviewed", "proposal:" # Nat.toText(proposal.id), comment);
+        proposal
+      };
+      case null { Debug.trap("proposal not found") };
+    }
   };
 
   public shared ({ caller }) func append_note(projectId : Nat, body : Text) : async Note {

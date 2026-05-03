@@ -6,7 +6,7 @@
 
 SovereignDesk AI is a premium ICP-native client operations workspace: private client workrooms, approval gates, document metadata, role governance, audit history, upgrade safety, and public canister proof.
 
-Production status: this repository currently represents a live ICP mainnet MVP for public review and technical validation. It is not approved for real confidential client data, secrets, user funds, or regulated production workloads until encrypted private data storage and release governance are completed.
+Production status: this repository currently represents a live ICP mainnet MVP for public review and technical validation. It now includes encrypted document object storage, but it is not approved for real confidential client data, secrets, user funds, or regulated production workloads until vetKeys-backed key release and release governance are completed.
 
 ```text
 Live app: https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/
@@ -98,10 +98,12 @@ Current mainnet MVP hardening includes:
 - on-chain operator access request queue with governance-side approval;
 - role grants, revocation, and client portal principal rotation;
 - client invite codes for self-service Internet Identity portal claiming;
-- Document Vault v1 with document versions, archive records, and client-side SHA-256 verification evidence;
+- Document Vault v2 with document versions, archive records, and client-side SHA-256 verification evidence;
+- encrypted vault objects: browser-side AES-GCM encryption, ciphertext-only canister storage, and vetKeys-ready derivation context;
+- governance proposal ledger for multisig/SNS/Launchtrail migration decisions;
 - update endpoints for client, project, task, document metadata, and notes;
 - approval final-state protection and backend-side document hash validation;
-- schema version v4 endpoint and owner-only state snapshot export;
+- schema version v5 endpoint and owner-only state snapshot export;
 - Trust Center section with canister IDs, controller, module hashes, dashboard links, and verification command;
 - independent-project disclaimer for DFINITY/Internet Computer branding;
 - tightened asset canister CSP and Permissions-Policy;
@@ -212,6 +214,13 @@ The backend exposes:
 - `list_document_versions`
 - `list_document_verifications`
 - `list_document_archives`
+- `get_vetkey_derivation_context`
+- `store_encrypted_document_object`
+- `list_encrypted_document_objects`
+- `get_encrypted_document_object`
+- `create_governance_proposal`
+- `list_governance_proposals`
+- `review_governance_proposal`
 - `append_note`
 - `update_note`
 - `get_client_portal`
@@ -224,7 +233,7 @@ The backend exposes:
 - Move controller governance from protected single identity to multisig, SNS, Launchtrail, or equivalent.
 - Add request status lifecycle UX: pending, approved, rejected, archived.
 - Split vault, audit/proof, and agent into separate canisters once the core workflow is stable.
-- Add vetKeys for client-side encrypted document keys.
+- Replace passphrase-derived vault demo keys with vetKeys-backed key release.
 - Add proper file upload and certified document retrieval.
 - Add automated E2E tests for authenticated Internet Identity flows.
 - Add ckBTC/ckUSDC invoice payment flow after mainnet MVP.

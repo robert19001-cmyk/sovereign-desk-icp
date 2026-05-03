@@ -13,8 +13,10 @@ SovereignDesk AI is an ICP mainnet MVP. It is designed to demonstrate a canister
 - Role grants can be listed, granted, revoked, and client portal principals can be rotated by governance.
 - Approval decisions cannot be returned to Pending or overwritten after final state.
 - New document records, document versions, and hash verifications require backend-side `sha256:<64 hex>` validation.
-- Document Vault v1 records version metadata and verification evidence; document bytes are not stored in the canister.
-- Upgrade safety exposes `schemaVersion = 4` and owner-only state snapshot export.
+- Document Vault v2 records version metadata, verification evidence, and optional encrypted ciphertext objects.
+- Encrypted Vault v2 stores ciphertext-only document objects. AES-GCM encryption runs in the browser; plaintext and passphrases are not sent to the canister.
+- The vault exposes a vetKeys-ready derivation context so the demo passphrase flow can be replaced by vetKeys-backed key release.
+- Upgrade safety exposes `schemaVersion = 5` and owner-only state snapshot export.
 - Asset headers include a tightened CSP and Permissions-Policy.
 - Frontend rendering escapes canister-provided strings.
 - The app uses a custom product mark and is not affiliated with or endorsed by DFINITY Foundation.
@@ -22,7 +24,7 @@ SovereignDesk AI is an ICP mainnet MVP. It is designed to demonstrate a canister
 ## Known Limitations
 
 - Mainnet canister control has been moved from the plaintext development identity to the protected `sovereign-controller` identity. Move control to multisig, Launchtrail, SNS, or equivalent governance before storing valuable data.
-- Canister state is not confidential by default on ICP. Do not store secrets, API keys, private documents, or sensitive client data until encrypted storage and vetKeys/client-side encryption are implemented.
+- Canister state is not confidential by default on ICP. Encrypted vault objects are ciphertext-only, but do not store secrets, API keys, or regulated client data until vetKeys-backed key release, recovery, and governance are completed.
 - Public query responses are not the same as certified state. Trust-sensitive public proof fields should move toward certified variables or certified assets.
 - Access request approval is useful for the MVP, but the lifecycle should be expanded with archive/history UX, notifications, and scoped invitations.
 - The AI Employee endpoint is currently a deterministic draft helper, not an external LLM integration.

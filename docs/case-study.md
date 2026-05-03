@@ -13,7 +13,7 @@ Most client portals still depend on a conventional app stack: hosted frontend, c
 - on-chain operator access requests;
 - Trust Center with canister IDs, controller, module hashes, and verification command;
 - approval and audit trail primitives;
-- Document Vault v1 with version metadata and client-side hash verification evidence;
+- Document Vault v2 with version metadata, client-side hash verification evidence, ciphertext-only object storage, and vetKeys-ready key context;
 - AI Employee readout for operator summaries.
 
 ## Live Deployment
@@ -41,7 +41,7 @@ The next product milestone is not another landing page. It is a controlled workf
 2. Add owner onboarding for the real Internet Identity principal.
 3. Add access request status lifecycle and notifications.
 4. Harden client invite and portal-principal assignment with expiry and notification hooks.
-5. Add vetKeys-backed encrypted key handling for the vault.
+5. Replace passphrase-derived demo keys with vetKeys-backed encrypted key handling for the vault.
 6. Split the AI Employee into a dedicated canister with explicit human approval.
 7. Add ckBTC/ckUSDC invoice approvals after the client workflow is stable.
 

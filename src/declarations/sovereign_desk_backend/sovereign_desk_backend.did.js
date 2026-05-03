@@ -108,6 +108,31 @@ export const idlFactory = ({ IDL }) => {
     'claimedBy' : IDL.Opt(IDL.Principal),
     'revokedAt' : IDL.Opt(IDL.Int),
   });
+  const GovernanceProposalKind = IDL.Variant({
+    'SNS' : IDL.Null,
+    'Multisig' : IDL.Null,
+    'ControllerMigration' : IDL.Null,
+    'VaultPolicy' : IDL.Null,
+    'Other' : IDL.Null,
+    'Launchtrail' : IDL.Null,
+  });
+  const GovernanceProposalStatus = IDL.Variant({
+    'Open' : IDL.Null,
+    'Approved' : IDL.Null,
+    'Rejected' : IDL.Null,
+  });
+  const GovernanceProposal = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : GovernanceProposalStatus,
+    'title' : IDL.Text,
+    'body' : IDL.Text,
+    'kind' : GovernanceProposalKind,
+    'createdAt' : IDL.Int,
+    'createdBy' : IDL.Principal,
+    'reviewComment' : IDL.Text,
+    'reviewedAt' : IDL.Opt(IDL.Int),
+    'reviewedBy' : IDL.Opt(IDL.Principal),
+  });
   const AuditEvent = IDL.Record({
     'id' : IDL.Nat,
     'action' : IDL.Text,
@@ -125,6 +150,18 @@ export const idlFactory = ({ IDL }) => {
     'expectedHash' : IDL.Text,
     'verifiedAt' : IDL.Int,
     'verifiedBy' : IDL.Principal,
+  });
+  const EncryptedDocumentObject = IDL.Record({
+    'id' : IDL.Nat,
+    'iv' : IDL.Vec(IDL.Nat8),
+    'versionId' : IDL.Opt(IDL.Nat),
+    'algorithm' : IDL.Text,
+    'ciphertextHash' : IDL.Text,
+    'ciphertext' : IDL.Vec(IDL.Nat8),
+    'createdAt' : IDL.Int,
+    'createdBy' : IDL.Principal,
+    'keyDerivationContext' : IDL.Text,
+    'documentId' : IDL.Nat,
   });
   const Workspace = IDL.Record({
     'id' : IDL.Nat,
@@ -165,14 +202,18 @@ export const idlFactory = ({ IDL }) => {
     'nextAuditId' : IDL.Nat,
     'nextTaskId' : IDL.Nat,
     'documentVersions' : IDL.Vec(DocumentVersion),
+    'nextEncryptedDocumentObjectId' : IDL.Nat,
     'documentArchives' : IDL.Vec(DocumentArchiveRecord),
+    'nextGovernanceProposalId' : IDL.Nat,
     'exportedAt' : IDL.Int,
     'documentHashVerifications' : IDL.Vec(DocumentHashVerification),
+    'encryptedDocumentObjects' : IDL.Vec(EncryptedDocumentObject),
     'nextApprovalId' : IDL.Nat,
     'notes' : IDL.Vec(Note),
     'workspace' : IDL.Opt(Workspace),
     'nextProjectId' : IDL.Nat,
     'accessRequests' : IDL.Vec(AccessRequest),
+    'governanceProposals' : IDL.Vec(GovernanceProposal),
     'nextClientId' : IDL.Nat,
     'schemaVersion' : IDL.Nat,
     'rejectedAccessRequestIds' : IDL.Vec(IDL.Nat),
@@ -265,8 +306,10 @@ export const idlFactory = ({ IDL }) => {
     'documentVersions' : IDL.Nat,
     'documentArchives' : IDL.Nat,
     'documentHashVerifications' : IDL.Nat,
+    'encryptedDocumentObjects' : IDL.Nat,
     'notes' : IDL.Nat,
     'accessRequests' : IDL.Nat,
+    'governanceProposals' : IDL.Nat,
     'roleGrants' : IDL.Nat,
     'approvals' : IDL.Nat,
     'clients' : IDL.Nat,
@@ -286,6 +329,18 @@ export const idlFactory = ({ IDL }) => {
   const AccessRequestReview = IDL.Record({
     'status' : AccessRequestStatus,
     'request' : AccessRequest,
+  });
+  const EncryptedDocumentObjectInfo = IDL.Record({
+    'id' : IDL.Nat,
+    'versionId' : IDL.Opt(IDL.Nat),
+    'algorithm' : IDL.Text,
+    'ciphertextHash' : IDL.Text,
+    'ciphertextSize' : IDL.Nat,
+    'ivSize' : IDL.Nat,
+    'createdAt' : IDL.Int,
+    'createdBy' : IDL.Principal,
+    'keyDerivationContext' : IDL.Text,
+    'documentId' : IDL.Nat,
   });
   return IDL.Service({
     'add_admin' : IDL.Func([IDL.Principal], [IDL.Vec(IDL.Principal)], []),
@@ -327,12 +382,22 @@ export const idlFactory = ({ IDL }) => {
         [DocumentRecord],
         [],
       ),
+    'create_governance_proposal' : IDL.Func(
+        [GovernanceProposalKind, IDL.Text, IDL.Text],
+        [GovernanceProposal],
+        [],
+      ),
     'create_project' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [Project], []),
     'create_task' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [Task], []),
     'export_state_snapshot' : IDL.Func([], [StateSnapshot], ['query']),
     'get_client_portal' : IDL.Func(
         [IDL.Nat],
         [IDL.Opt(ClientPortalView)],
+        ['query'],
+      ),
+    'get_encrypted_document_object' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Opt(EncryptedDocumentObject)],
         ['query'],
       ),
     'get_my_client_portals' : IDL.Func(
@@ -344,6 +409,11 @@ export const idlFactory = ({ IDL }) => {
     'get_my_workspace' : IDL.Func([], [IDL.Opt(WorkspaceView)], ['query']),
     'get_public_demo' : IDL.Func([], [IDL.Opt(PublicDemoView)], ['query']),
     'get_system_info' : IDL.Func([], [SystemInfo], ['query']),
+    'get_vetkey_derivation_context' : IDL.Func(
+        [IDL.Nat, IDL.Principal],
+        [IDL.Text],
+        ['query'],
+      ),
     'grant_role' : IDL.Func(
         [IDL.Principal, Role, IDL.Opt(IDL.Nat)],
         [IDL.Vec(RoleGrant)],
@@ -377,6 +447,16 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(DocumentVersion)],
         ['query'],
       ),
+    'list_encrypted_document_objects' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Vec(EncryptedDocumentObjectInfo)],
+        ['query'],
+      ),
+    'list_governance_proposals' : IDL.Func(
+        [],
+        [IDL.Vec(GovernanceProposal)],
+        ['query'],
+      ),
     'list_role_grants' : IDL.Func([], [IDL.Vec(RoleGrant)], ['query']),
     'migrate_schema_version' : IDL.Func([], [IDL.Nat], []),
     'reject_access_request' : IDL.Func(
@@ -394,6 +474,11 @@ export const idlFactory = ({ IDL }) => {
         [Approval],
         [],
       ),
+    'review_governance_proposal' : IDL.Func(
+        [IDL.Nat, GovernanceProposalStatus, IDL.Text],
+        [GovernanceProposal],
+        [],
+      ),
     'revoke_client_invite' : IDL.Func([IDL.Nat], [ClientInvite], []),
     'revoke_role' : IDL.Func(
         [IDL.Principal, Role, IDL.Opt(IDL.Nat)],
@@ -406,6 +491,19 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'seed_demo' : IDL.Func([], [WorkspaceView], []),
+    'store_encrypted_document_object' : IDL.Func(
+        [
+          IDL.Nat,
+          IDL.Opt(IDL.Nat),
+          IDL.Text,
+          IDL.Text,
+          IDL.Vec(IDL.Nat8),
+          IDL.Vec(IDL.Nat8),
+          IDL.Text,
+        ],
+        [EncryptedDocumentObjectInfo],
+        [],
+      ),
     'update_client' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Text, IDL.Text],
         [Client],

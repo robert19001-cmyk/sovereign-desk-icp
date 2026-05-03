@@ -10,7 +10,7 @@ const MAINNET_HOST = "https://icp-api.io";
 const FRONTEND_CANISTER_ID = "v7inb-hyaaa-aaaal-qw7aq-cai";
 const TRUST = {
   controller: "7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae",
-  backendModuleHash: "0x4aae46ec17aa03ab3d5483fb3841ab378102c8e57341b24c663d754491d8ae07",
+  backendModuleHash: "0xd32ca3c209b2ae9417f2de4f40f3528ed3712070228f23f02a2b7a8d80221fa8",
   frontendModuleHash: "0x04e565b3425fe7510ee16b02adcfe3f01abc9a2725c82a21cb08969241debd62",
   governance: "Protected keychain controller live; next step is multisig, SNS, or Launchtrail governance.",
   source: "git@github.com:robert19001-cmyk/sovereign-desk-icp.git",
@@ -42,6 +42,8 @@ const state = {
   documentArchives: [],
   documentVersions: {},
   documentVerifications: {},
+  encryptedDocumentObjects: {},
+  governanceProposals: [],
   agentResponse: null,
   loading: false,
   error: "",
@@ -188,6 +190,10 @@ function documentVersions(documentId) {
 
 function documentVerifications(documentId) {
   return state.documentVerifications[idText(documentId)] || [];
+}
+
+function encryptedDocumentObjects(documentId) {
+  return state.encryptedDocumentObjects[idText(documentId)] || [];
 }
 
 function documentArchive(documentId) {
@@ -652,7 +658,7 @@ function renderTrustCenter() {
   const statusCommand = `dfx canister status --network ic ${BACKEND_CANISTER_ID}`;
   const hardening = [
     ["Controller", "Move control rights to a hardware-backed or passphrase-protected ICP identity."],
-    ["Encrypted rooms", "Add certified document metadata and vetKeys for client-side key handling."],
+    ["Encrypted rooms", "Ciphertext-only vault objects are live; vetKeys-backed key release is the next key-management upgrade."],
     ["AI service", "Split AI work logs into a dedicated ICP service with explicit human approval."],
   ];
   return `
@@ -787,6 +793,21 @@ function renderOperatorConsole(view) {
       </div>
     </li>
   `).join("") : "";
+  const proposalRows = state.governanceAccess ? (state.governanceProposals || []).slice(-5).reverse().map((proposal) => `
+    <li>
+      <div>
+        <strong>${e(proposal.title)}</strong>
+        <span>${e(variantName(proposal.kind))} · ${e(variantName(proposal.status))}</span>
+        <code>${e(proposal.body)}</code>
+      </div>
+      <div class="request-actions">
+        ${variantName(proposal.status) === "Open" ? `
+          <button type="button" class="tiny" data-action="review-governance-proposal" data-proposal-id="${e(idText(proposal.id))}" data-status="Approved">Approve</button>
+          <button type="button" class="tiny secondary" data-action="review-governance-proposal" data-proposal-id="${e(idText(proposal.id))}" data-status="Rejected">Reject</button>
+        ` : "Reviewed"}
+      </div>
+    </li>
+  `).join("") : "";
   const governancePanel = state.governanceAccess ? `
     <article class="surface access-queue governance-panel">
       <div class="section-heading">
@@ -794,6 +815,10 @@ function renderOperatorConsole(view) {
         <h3>Roles and client principal rotation</h3>
       </div>
       <ul>${roleRows || "<li><div><strong>No direct role grants</strong><span>Owner and legacy roles are derived until explicit grants are added.</span></div></li>"}</ul>
+      <div class="proposal-ledger">
+        <h3>Governance proposal ledger</h3>
+        <ul>${proposalRows || "<li><div><strong>No governance proposals</strong><span>Create the first multisig/SNS/vault policy proposal.</span></div></li>"}</ul>
+      </div>
       <div class="console-grid compact">
         <form class="form-surface compact-form" data-action="grant-role">
           <h3>Grant role</h3>
@@ -807,6 +832,13 @@ function renderOperatorConsole(view) {
           <label><span>Client ID</span><input name="clientId" value="${e(client?.id ?? 1)}" inputmode="numeric" required /></label>
           <label><span>New portal principal</span><input name="principal" placeholder="client Internet Identity principal" required /></label>
           <button type="submit">Rotate principal</button>
+        </form>
+        <form class="form-surface compact-form" data-action="create-governance-proposal">
+          <h3>Create governance proposal</h3>
+          <label><span>Kind</span><select name="kind"><option>Multisig</option><option>SNS</option><option>Launchtrail</option><option>VaultPolicy</option><option>ControllerMigration</option><option>Other</option></select></label>
+          <label><span>Title</span><input name="title" value="Move controller governance to multisig" maxlength="180" required /></label>
+          <label><span>Body</span><textarea name="body" maxlength="1500" required>Adopt team-grade controller approval before storing valuable client data.</textarea></label>
+          <button type="submit">Create proposal</button>
         </form>
       </div>
     </article>
@@ -1042,6 +1074,7 @@ function renderDocumentVaultTools(document) {
   }
   const versions = documentVersions(document.id);
   const verifications = documentVerifications(document.id);
+  const encryptedObjects = encryptedDocumentObjects(document.id);
   const versionOptions = versions.map((version) => `
     <option value="${e(idText(version.id))}">v${e(natText(version.version))} · ${e(version.contentHash)}</option>
   `).join("");
@@ -1051,12 +1084,20 @@ function renderDocumentVaultTools(document) {
       <code>${e(item.submittedHash)}</code>
     </li>
   `).join("");
+  const encryptedRows = encryptedObjects.slice(-4).reverse().map((item) => `
+    <li>
+      <strong>${e(item.algorithm)}</strong>
+      <span>${e(natText(item.ciphertextSize))} encrypted bytes</span>
+      <code>${e(item.ciphertextHash)}</code>
+      <button type="button" class="tiny" data-action="download-encrypted-object" data-object-id="${e(idText(item.id))}">Download ciphertext</button>
+    </li>
+  `).join("");
   return `
     <div class="vault-console">
       <div class="vault-summary">
-        <span>Document Vault v1</span>
+        <span>Document Vault v2</span>
         <strong>${e(document.name)}</strong>
-        <p>Client-side SHA-256 verification, immutable version records, archive trail, and audit events.</p>
+        <p>Client-side encryption, vetKeys-ready derivation context, version records, hash verification, and audit events.</p>
       </div>
       <form class="compact-form" data-action="add-document-version">
         <input type="hidden" name="documentId" value="${e(idText(document.id))}" />
@@ -1085,7 +1126,25 @@ function renderDocumentVaultTools(document) {
         <label><span>Or paste SHA-256</span><input name="submittedHash" value="${e(document.contentHash)}" maxlength="240" /></label>
         <button type="submit">Verify hash</button>
       </form>
+      <form class="compact-form" data-action="store-encrypted-object">
+        <input type="hidden" name="documentId" value="${e(idText(document.id))}" />
+        <label>
+          <span>Version</span>
+          <select name="versionId">
+            <option value="">Original record</option>
+            ${versionOptions}
+          </select>
+        </label>
+        <label class="file-drop">
+          <span>Encrypt file</span>
+          <input name="file" type="file" required />
+          <small>AES-GCM runs in this browser. Only ciphertext, IV, hash, and key context are written to the canister.</small>
+        </label>
+        <label><span>Vault passphrase</span><input name="passphrase" type="password" minlength="12" autocomplete="new-password" required /></label>
+        <button type="submit">Encrypt and store</button>
+      </form>
       <ol class="vault-verifications">${verificationRows || "<li><strong>No verifications yet</strong><span>Run a file check to create evidence.</span></li>"}</ol>
+      <ol class="vault-verifications encrypted-list">${encryptedRows || "<li><strong>No encrypted objects yet</strong><span>Store ciphertext to prove private-data mode.</span></li>"}</ol>
     </div>
   `;
 }
@@ -1418,6 +1477,8 @@ async function refreshData() {
   state.documentArchives = [];
   state.documentVersions = {};
   state.documentVerifications = {};
+  state.encryptedDocumentObjects = {};
+  state.governanceProposals = [];
   state.governanceAccess = false;
   state.operatorAccess = false;
   state.clientPortalAccess = false;
@@ -1437,6 +1498,7 @@ async function refreshData() {
       state.accessMode = state.governanceAccess ? "governance" : "operator";
       state.accessRequests = state.governanceAccess ? await state.actor.list_access_requests() : [];
       state.roleGrants = state.governanceAccess ? await state.actor.list_role_grants() : [];
+      state.governanceProposals = state.governanceAccess ? await state.actor.list_governance_proposals().catch(() => []) : [];
       state.clientInvites = await state.actor.list_client_invites().catch(() => []);
       state.documentArchives = await state.actor.list_document_archives().catch(() => []);
     }
@@ -1477,6 +1539,7 @@ async function refreshVaultForCurrentDocuments() {
     const documentId = idText(doc.id);
     state.documentVersions[documentId] = await state.actor.list_document_versions(doc.id).catch(() => []);
     state.documentVerifications[documentId] = await state.actor.list_document_verifications(doc.id).catch(() => []);
+    state.encryptedDocumentObjects[documentId] = await state.actor.list_encrypted_document_objects(doc.id).catch(() => []);
   }
 }
 
@@ -1525,6 +1588,22 @@ function roleVariant(value) {
   return { Operator: null };
 }
 
+function governanceKindVariant(value) {
+  const kind = String(value || "Other");
+  if (kind === "ControllerMigration") return { ControllerMigration: null };
+  if (kind === "Multisig") return { Multisig: null };
+  if (kind === "SNS") return { SNS: null };
+  if (kind === "Launchtrail") return { Launchtrail: null };
+  if (kind === "VaultPolicy") return { VaultPolicy: null };
+  return { Other: null };
+}
+
+function proposalStatusVariant(value) {
+  if (value === "Approved") return { Approved: null };
+  if (value === "Rejected") return { Rejected: null };
+  return { Open: null };
+}
+
 function hex(buffer) {
   return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -1533,6 +1612,65 @@ async function sha256File(file) {
   const buffer = await file.arrayBuffer();
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   return hex(digest);
+}
+
+async function sha256Bytes(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return hex(digest);
+}
+
+async function deriveVaultKey(passphrase, context) {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: new TextEncoder().encode(context),
+      iterations: 210_000,
+      hash: "SHA-256",
+    },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+async function encryptVaultFile(file, passphrase, context) {
+  if (!passphrase || passphrase.length < 12) {
+    throw new Error("vault passphrase must be at least 12 characters");
+  }
+  if (file.size > 2_000_000) {
+    throw new Error("document too large for MVP encrypted object limit");
+  }
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveVaultKey(passphrase, context);
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    await file.arrayBuffer(),
+  ));
+  return {
+    iv,
+    ciphertext,
+    ciphertextHash: `sha256:${await sha256Bytes(ciphertext)}`,
+  };
+}
+
+function downloadBytes(name, bytes, type = "application/octet-stream") {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function copyText(value) {
@@ -1649,7 +1787,24 @@ app.addEventListener("click", (event) => {
     const documentId = nat(button.dataset.documentId);
     state.documentVersions[idText(documentId)] = await state.actor.list_document_versions(documentId);
     state.documentVerifications[idText(documentId)] = await state.actor.list_document_verifications(documentId);
+    state.encryptedDocumentObjects[idText(documentId)] = await state.actor.list_encrypted_document_objects(documentId);
     state.notice = "Document vault evidence refreshed.";
+  });
+  if (action === "download-encrypted-object") withBusy(async () => {
+    const object = await state.actor.get_encrypted_document_object(nat(button.dataset.objectId));
+    if (!object.length) throw new Error("encrypted object not found");
+    downloadBytes(`sovereign-desk-encrypted-${idText(button.dataset.objectId)}.bin`, new Uint8Array(object[0].ciphertext));
+    state.notice = "Encrypted ciphertext downloaded. Decryption key never leaves the browser/passphrase flow.";
+  });
+  if (action === "review-governance-proposal") withBusy(async () => {
+    if (!state.governanceAccess) throw new Error("caller is not a governance principal");
+    await state.actor.review_governance_proposal(
+      nat(button.dataset.proposalId),
+      proposalStatusVariant(button.dataset.status),
+      `${button.dataset.status} from SovereignDesk governance console.`,
+    );
+    await refreshData();
+    state.notice = "Governance proposal reviewed and written to audit.";
   });
   if (action === "archive-document") withBusy(async () => {
     if (!state.operatorAccess) throw new Error("caller is not an admin");
@@ -1720,6 +1875,17 @@ app.addEventListener("submit", (event) => {
       if (!state.governanceAccess) throw new Error("caller is not a governance principal");
       await state.actor.rotate_client_principal(nat(data.clientId), Principal.fromText(String(data.principal || "")));
       state.notice = "Client portal principal rotated and role grant recorded.";
+      await refreshData();
+      return;
+    }
+    if (action === "create-governance-proposal") {
+      if (!state.governanceAccess) throw new Error("caller is not a governance principal");
+      await state.actor.create_governance_proposal(
+        governanceKindVariant(data.kind),
+        String(data.title || ""),
+        String(data.body || ""),
+      );
+      state.notice = "Governance proposal created in the canister ledger.";
       await refreshData();
       return;
     }
@@ -1804,6 +1970,23 @@ app.addEventListener("submit", (event) => {
         submittedHash,
       );
       state.notice = result.matches ? "Hash verification matched the vault record." : "Hash verification mismatch recorded for audit review.";
+    }
+    if (action === "store-encrypted-object") {
+      const file = form.elements.file?.files?.[0];
+      if (!file) throw new Error("encrypted file is required");
+      const documentId = nat(data.documentId);
+      const context = await state.actor.get_vetkey_derivation_context(documentId, Principal.fromText(state.principal));
+      const encrypted = await encryptVaultFile(file, String(data.passphrase || ""), context);
+      await state.actor.store_encrypted_document_object(
+        documentId,
+        optionalNat(data.versionId),
+        "AES-GCM-256/PBKDF2-SHA256/vetkeys-ready",
+        context,
+        encrypted.iv,
+        encrypted.ciphertext,
+        encrypted.ciphertextHash,
+      );
+      state.notice = "Encrypted ciphertext stored on the canister. The plaintext file and passphrase were not sent.";
     }
     await refreshData();
   });

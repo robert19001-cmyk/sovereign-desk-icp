@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 const frontendUrl = "https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/";
 const frontendId = "v7inb-hyaaa-aaaal-qw7aq-cai";
 const backendId = "vyjlv-kaaaa-aaaal-qw7aa-cai";
-const expectedBackendHash = "4aae46ec17aa03ab3d5483fb3841ab378102c8e57341b24c663d754491d8ae07";
+const expectedBackendHash = "d32ca3c209b2ae9417f2de4f40f3528ed3712070228f23f02a2b7a8d80221fa8";
 const expectedFrontendHash = "04e565b3425fe7510ee16b02adcfe3f01abc9a2725c82a21cb08969241debd62";
 
 function run(command, args, options = {}) {
@@ -72,9 +72,10 @@ const roleGrants = dfxOwner(["canister", "call", "sovereign_desk_backend", "list
 checks.push(assert("role grant list available", roleGrants.includes("vec")));
 
 const systemInfo = dfxOwner(["canister", "call", "sovereign_desk_backend", "get_system_info", "--network", "ic"]);
-checks.push(assert("schema version current", systemInfo.includes("schemaVersion = 4")));
+checks.push(assert("schema version current", systemInfo.includes("schemaVersion = 5")));
 checks.push(assert("system counts available", systemInfo.includes("roleGrants =")));
-checks.push(assert("vault counts available", systemInfo.includes("documentVersions =") && systemInfo.includes("documentHashVerifications =")));
+checks.push(assert("vault counts available", systemInfo.includes("documentVersions =") && systemInfo.includes("encryptedDocumentObjects =")));
+checks.push(assert("governance counts available", systemInfo.includes("governanceProposals =")));
 
 const backendStatus = dfxController(["canister", "status", "sovereign_desk_backend", "--network", "ic"]);
 checks.push(assert("backend running", backendStatus.includes("Status: Running")));

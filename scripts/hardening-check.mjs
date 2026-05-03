@@ -98,6 +98,32 @@ const checks = [
     ],
     "content hash must be sha256:<64 hex>",
   ),
+  expectTrap(
+    "encrypted object hash format enforced",
+    [
+      "canister",
+      "call",
+      backendName,
+      "store_encrypted_document_object",
+      '(4, opt 1, "AES-GCM-256/PBKDF2-SHA256/vetkeys-ready", "sovereign-desk:test", blob "\\00\\01\\02\\03\\04\\05\\06\\07\\08\\09\\0a\\0b", blob "\\10\\11", "sha256:notvalid")',
+      "--network",
+      "ic",
+    ],
+    "content hash must be sha256:<64 hex>",
+  ),
+  expectTrap(
+    "governance proposal cannot return to open",
+    [
+      "canister",
+      "call",
+      backendName,
+      "review_governance_proposal",
+      '(1, variant { Open }, "Hardening check should fail")',
+      "--network",
+      "ic",
+    ],
+    "proposal review cannot return to Open",
+  ),
 ];
 
 console.log(JSON.stringify({ checks, count: checks.length }, null, 2));
