@@ -1,21 +1,24 @@
 # Roadmap
 
-SovereignDesk AI is moving from canister-native MVP toward a production-grade ICP product.
+SovereignDesk AI is moving from a public canister-native mainnet MVP toward a production-grade ICP product. The current deployment is suitable for review and technical validation, not real confidential client data.
 
 ## Phase 1: Trust and Launch Readiness
 
 - Move controller from plaintext development identity to a protected controller.
-- Publish source on GitHub with CI, security policy, and reproducible build notes.
+- Publish source on GitHub with CI, security policy, reproducible build notes, selected release screenshots, and release gates.
 - Keep Trust Center visible in the public app.
 - Add CI checks for frontend build and source hygiene.
 - Document canister IDs, controllers, module hashes, and verification commands.
+- Keep the premium white/gold reviewer flow as the default public surface.
+- Keep maintainer-only mainnet QA separate from generic local contributor checks.
+- Maintain release checklist and controller-hardening runbook.
 
 ## Phase 2: Role Onboarding
 
-- Add owner onboarding for the real Internet Identity principal.
+- Harden owner onboarding for the real Internet Identity principal.
 - Expand access request lifecycle: pending, approved, rejected, archived.
 - Add client invite flow with portal principal assignment.
-- Add admin UI for client principal rotation.
+- Extend governance UI for client principal rotation, role revoke, and scoped grants.
 - Add audit filters and export.
 
 ## Phase 3: Data and Documents
@@ -24,7 +27,7 @@ SovereignDesk AI is moving from canister-native MVP toward a production-grade IC
 - Add file upload flow through asset or storage canister design.
 - Add client-side encryption and vetKeys for document keys.
 - Separate public demo state from real workspace state.
-- Add backup/export for workspace metadata.
+- Expand state snapshot/export into an encrypted backup and restore/migration runbook.
 
 ## Phase 4: AI Employee Canister
 
@@ -44,3 +47,4 @@ SovereignDesk AI is moving from canister-native MVP toward a production-grade IC
 - Evaluate Launchtrail, multisig, blackhole patterns for immutable pieces, or SNS governance.
 - Document upgrade process.
 - Publish reproducible build hashes per release.
+- Require explicit maintainer approval before push, tag, deploy, controller changes, or production data handling.

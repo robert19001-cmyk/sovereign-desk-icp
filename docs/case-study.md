@@ -1,6 +1,6 @@
 # SovereignDesk AI Case Study
 
-SovereignDesk AI is a canister-native client operations workspace deployed on the Internet Computer mainnet.
+SovereignDesk AI is a canister-native client operations workspace deployed on the Internet Computer mainnet as a public MVP. It is not yet approved for real confidential client data.
 
 ## Why This Exists
 

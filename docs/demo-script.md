@@ -11,6 +11,7 @@ https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/
 Confirm:
 
 - the public app loads from an ICP asset canister;
+- the white/gold product tabs and live proof ledger are visible without login;
 - the workspace preview is visible without login;
 - public client/project/task/approval content is redacted;
 - creator contact is visible;
@@ -26,6 +27,7 @@ Confirm:
 - backend canister: `vyjlv-kaaaa-aaaal-qw7aa-cai`;
 - controller principal is listed;
 - backend module hash is listed;
+- schema version and state health are verifiable through backend API;
 - source remote is listed;
 - DFINITY/Internet Computer independent-project disclaimer is visible.
 
@@ -38,6 +40,10 @@ https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=vyjlv-kaaaa-aaaal-qw7aa-cai
 Try read-only calls:
 
 - `get_public_demo`
+- `get_system_info`
+- `get_my_roles` with the controller identity
+- `list_role_grants` with the controller identity
+- `export_state_snapshot` with the controller identity
 - `list_access_requests` with the controller identity
 - `list_access_request_history` with the controller identity
 
@@ -87,7 +93,16 @@ With the controller/operator identity:
 ```bash
 npm ci
 npm test
+npm run qa:hardening
+npm run qa:roles
+npm run qa:upgrade
+```
+
+Maintainer-only mainnet QA:
+
+```bash
 npm run qa:mainnet
+npm run qa:product
 ```
 
 Mainnet status:
@@ -99,4 +114,4 @@ DFX_WARNING=-mainnet_plaintext_identity dfx canister status --network ic soverei
 
 ## Review Notes
 
-This is a canister-native MVP, not a finished production system. The next hardening step is moving controller rights away from the plaintext development identity and toward a protected identity, multisig, Launchtrail, SNS, or another governance model.
+This is a canister-native MVP, not a finished production system. Do not use it for real confidential client data yet. The next hardening step is moving controller rights away from the plaintext development identity and toward a protected identity, multisig, Launchtrail, SNS, or another governance model.

@@ -73,14 +73,6 @@ export const idlFactory = ({ IDL }) => {
     'createdAt' : IDL.Int,
     'projectId' : IDL.Nat,
   });
-  const ClientPortalView = IDL.Record({
-    'client' : Client,
-    'tasks' : IDL.Vec(Task),
-    'documents' : IDL.Vec(DocumentRecord),
-    'projects' : IDL.Vec(Project),
-    'notes' : IDL.Vec(Note),
-    'approvals' : IDL.Vec(Approval),
-  });
   const AuditEvent = IDL.Record({
     'id' : IDL.Nat,
     'action' : IDL.Text,
@@ -95,6 +87,60 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'createdAt' : IDL.Int,
     'profile' : IDL.Text,
+  });
+  const AccessRequest = IDL.Record({
+    'id' : IDL.Nat,
+    'principal' : IDL.Principal,
+    'note' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'email' : IDL.Text,
+  });
+  const Role = IDL.Variant({
+    'Operator' : IDL.Null,
+    'Client' : IDL.Null,
+    'Reviewer' : IDL.Null,
+    'Admin' : IDL.Null,
+    'Owner' : IDL.Null,
+  });
+  const RoleGrant = IDL.Record({
+    'principal' : IDL.Principal,
+    'clientId' : IDL.Opt(IDL.Nat),
+    'createdAt' : IDL.Int,
+    'role' : Role,
+  });
+  const StateSnapshot = IDL.Record({
+    'tasks' : IDL.Vec(Task),
+    'nextDocumentId' : IDL.Nat,
+    'documents' : IDL.Vec(DocumentRecord),
+    'nextAccessRequestId' : IDL.Nat,
+    'nextAgentResponseId' : IDL.Nat,
+    'audit' : IDL.Vec(AuditEvent),
+    'projects' : IDL.Vec(Project),
+    'nextAuditId' : IDL.Nat,
+    'nextTaskId' : IDL.Nat,
+    'exportedAt' : IDL.Int,
+    'nextApprovalId' : IDL.Nat,
+    'notes' : IDL.Vec(Note),
+    'workspace' : IDL.Opt(Workspace),
+    'nextProjectId' : IDL.Nat,
+    'accessRequests' : IDL.Vec(AccessRequest),
+    'nextClientId' : IDL.Nat,
+    'schemaVersion' : IDL.Nat,
+    'rejectedAccessRequestIds' : IDL.Vec(IDL.Nat),
+    'approvedAccessRequestIds' : IDL.Vec(IDL.Nat),
+    'nextWorkspaceId' : IDL.Nat,
+    'nextNoteId' : IDL.Nat,
+    'roleGrants' : IDL.Vec(RoleGrant),
+    'approvals' : IDL.Vec(Approval),
+    'clients' : IDL.Vec(Client),
+  });
+  const ClientPortalView = IDL.Record({
+    'client' : Client,
+    'tasks' : IDL.Vec(Task),
+    'documents' : IDL.Vec(DocumentRecord),
+    'projects' : IDL.Vec(Project),
+    'notes' : IDL.Vec(Note),
+    'approvals' : IDL.Vec(Approval),
   });
   const WorkspaceView = IDL.Record({
     'tasks' : IDL.Vec(Task),
@@ -166,17 +212,28 @@ export const idlFactory = ({ IDL }) => {
     'approvals' : IDL.Vec(PublicApproval),
     'clients' : IDL.Vec(PublicClient),
   });
+  const StateCounts = IDL.Record({
+    'tasks' : IDL.Nat,
+    'documents' : IDL.Nat,
+    'audit' : IDL.Nat,
+    'projects' : IDL.Nat,
+    'notes' : IDL.Nat,
+    'accessRequests' : IDL.Nat,
+    'roleGrants' : IDL.Nat,
+    'approvals' : IDL.Nat,
+    'clients' : IDL.Nat,
+  });
+  const SystemInfo = IDL.Record({
+    'workspaceInitialized' : IDL.Bool,
+    'owner' : IDL.Opt(IDL.Principal),
+    'schemaVersion' : IDL.Nat,
+    'counts' : StateCounts,
+    'backendName' : IDL.Text,
+  });
   const AccessRequestStatus = IDL.Variant({
     'Approved' : IDL.Null,
     'Rejected' : IDL.Null,
     'Pending' : IDL.Null,
-  });
-  const AccessRequest = IDL.Record({
-    'id' : IDL.Nat,
-    'principal' : IDL.Principal,
-    'note' : IDL.Text,
-    'createdAt' : IDL.Int,
-    'email' : IDL.Text,
   });
   const AccessRequestReview = IDL.Record({
     'status' : AccessRequestStatus,
@@ -204,6 +261,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'create_project' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [Project], []),
     'create_task' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [Task], []),
+    'export_state_snapshot' : IDL.Func([], [StateSnapshot], ['query']),
     'get_client_portal' : IDL.Func(
         [IDL.Nat],
         [IDL.Opt(ClientPortalView)],
@@ -214,8 +272,15 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(ClientPortalView)],
         ['query'],
       ),
+    'get_my_roles' : IDL.Func([], [IDL.Vec(RoleGrant)], ['query']),
     'get_my_workspace' : IDL.Func([], [IDL.Opt(WorkspaceView)], ['query']),
     'get_public_demo' : IDL.Func([], [IDL.Opt(PublicDemoView)], ['query']),
+    'get_system_info' : IDL.Func([], [SystemInfo], ['query']),
+    'grant_role' : IDL.Func(
+        [IDL.Principal, Role, IDL.Opt(IDL.Nat)],
+        [IDL.Vec(RoleGrant)],
+        [],
+      ),
     'init_workspace' : IDL.Func([IDL.Text, IDL.Text], [Workspace], []),
     'list_access_request_history' : IDL.Func(
         [],
@@ -228,6 +293,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(AuditEvent)],
         ['query'],
       ),
+    'list_role_grants' : IDL.Func([], [IDL.Vec(RoleGrant)], ['query']),
     'reject_access_request' : IDL.Func(
         [IDL.Nat, IDL.Text],
         [AccessRequest],
@@ -241,6 +307,16 @@ export const idlFactory = ({ IDL }) => {
     'respond_approval' : IDL.Func(
         [IDL.Nat, ApprovalStatus, IDL.Text],
         [Approval],
+        [],
+      ),
+    'revoke_role' : IDL.Func(
+        [IDL.Principal, Role, IDL.Opt(IDL.Nat)],
+        [IDL.Vec(RoleGrant)],
+        [],
+      ),
+    'rotate_client_principal' : IDL.Func(
+        [IDL.Nat, IDL.Principal],
+        [Client],
         [],
       ),
     'seed_demo' : IDL.Func([], [WorkspaceView], []),

@@ -1,6 +1,11 @@
 {
   "canisters": {
     "sovereign_desk_backend": {
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ],
       "main": "src/sovereign_desk_backend/main.mo",
       "type": "motoko"
     },

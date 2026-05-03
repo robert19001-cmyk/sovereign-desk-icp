@@ -18,5 +18,8 @@ node_modules/
 dist/
 .svelte-kit/
 
+# generated QA captures
+docs/qa/screenshots/current/
+
 # environment variables
 .env

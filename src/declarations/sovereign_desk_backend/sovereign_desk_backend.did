@@ -1,4 +1,4 @@
-type WorkspaceView = 
+type WorkspaceView =
  record {
    approvals: vec Approval;
    audit: vec AuditEvent;
@@ -9,7 +9,7 @@ type WorkspaceView =
    tasks: vec Task;
    workspace: Workspace;
  };
-type Workspace = 
+type Workspace =
  record {
    createdAt: int;
    id: nat;
@@ -17,13 +17,13 @@ type Workspace =
    owner: principal;
    profile: text;
  };
-type TaskStatus = 
+type TaskStatus =
  variant {
    Done;
    InProgress;
    Open;
  };
-type Task = 
+type Task =
  record {
    assignee: text;
    createdAt: int;
@@ -32,13 +32,75 @@ type Task =
    status: TaskStatus;
    title: text;
  };
-type PublicWorkspace = 
+type SystemInfo =
+ record {
+   backendName: text;
+   counts: StateCounts;
+   owner: opt principal;
+   schemaVersion: nat;
+   workspaceInitialized: bool;
+ };
+type StateSnapshot =
+ record {
+   accessRequests: vec AccessRequest;
+   approvals: vec Approval;
+   approvedAccessRequestIds: vec nat;
+   audit: vec AuditEvent;
+   clients: vec Client;
+   documents: vec DocumentRecord;
+   exportedAt: int;
+   nextAccessRequestId: nat;
+   nextAgentResponseId: nat;
+   nextApprovalId: nat;
+   nextAuditId: nat;
+   nextClientId: nat;
+   nextDocumentId: nat;
+   nextNoteId: nat;
+   nextProjectId: nat;
+   nextTaskId: nat;
+   nextWorkspaceId: nat;
+   notes: vec Note;
+   projects: vec Project;
+   rejectedAccessRequestIds: vec nat;
+   roleGrants: vec RoleGrant;
+   schemaVersion: nat;
+   tasks: vec Task;
+   workspace: opt Workspace;
+ };
+type StateCounts =
+ record {
+   accessRequests: nat;
+   approvals: nat;
+   audit: nat;
+   clients: nat;
+   documents: nat;
+   notes: nat;
+   projects: nat;
+   roleGrants: nat;
+   tasks: nat;
+ };
+type RoleGrant =
+ record {
+   clientId: opt nat;
+   createdAt: int;
+   "principal": principal;
+   role: Role;
+ };
+type Role =
+ variant {
+   Admin;
+   Client;
+   Operator;
+   Owner;
+   Reviewer;
+ };
+type PublicWorkspace =
  record {
    name: text;
    ownerLabel: text;
    profile: text;
  };
-type PublicTask = 
+type PublicTask =
  record {
    assignee: text;
    id: nat;
@@ -46,7 +108,7 @@ type PublicTask =
    status: TaskStatus;
    title: text;
  };
-type PublicProject = 
+type PublicProject =
  record {
    clientId: nat;
    id: nat;
@@ -54,13 +116,13 @@ type PublicProject =
    status: ProjectStatus;
    summary: text;
  };
-type PublicNote = 
+type PublicNote =
  record {
    body: text;
    id: nat;
    projectId: nat;
  };
-type PublicDocumentRecord = 
+type PublicDocumentRecord =
  record {
    contentHash: text;
    id: nat;
@@ -69,7 +131,7 @@ type PublicDocumentRecord =
    projectId: nat;
    sizeBytes: nat;
  };
-type PublicDemoView = 
+type PublicDemoView =
  record {
    approvals: vec PublicApproval;
    audit: vec PublicAuditEvent;
@@ -81,19 +143,19 @@ type PublicDemoView =
    tasks: vec PublicTask;
    workspace: PublicWorkspace;
  };
-type PublicClient = 
+type PublicClient =
  record {
    contactName: text;
    name: text;
  };
-type PublicAuditEvent = 
+type PublicAuditEvent =
  record {
    action: text;
    id: nat;
    summary: text;
    target: text;
  };
-type PublicApproval = 
+type PublicApproval =
  record {
    body: text;
    id: nat;
@@ -101,14 +163,14 @@ type PublicApproval =
    status: ApprovalStatus;
    title: text;
  };
-type ProjectStatus = 
+type ProjectStatus =
  variant {
    Active;
    Archived;
    Completed;
    WaitingOnClient;
  };
-type Project = 
+type Project =
  record {
    clientId: nat;
    createdAt: int;
@@ -117,7 +179,7 @@ type Project =
    status: ProjectStatus;
    summary: text;
  };
-type Note = 
+type Note =
  record {
    author: principal;
    body: text;
@@ -125,7 +187,7 @@ type Note =
    id: nat;
    projectId: nat;
  };
-type DocumentRecord = 
+type DocumentRecord =
  record {
    contentHash: text;
    createdAt: int;
@@ -136,7 +198,7 @@ type DocumentRecord =
    projectId: nat;
    sizeBytes: nat;
  };
-type ClientPortalView = 
+type ClientPortalView =
  record {
    approvals: vec Approval;
    client: Client;
@@ -145,7 +207,7 @@ type ClientPortalView =
    projects: vec Project;
    tasks: vec Task;
  };
-type Client = 
+type Client =
  record {
    contactEmail: text;
    contactName: text;
@@ -154,7 +216,7 @@ type Client =
    name: text;
    portalPrincipal: opt principal;
  };
-type AuditEvent = 
+type AuditEvent =
  record {
    action: text;
    actorPrincipal: principal;
@@ -163,13 +225,13 @@ type AuditEvent =
    summary: text;
    target: text;
  };
-type ApprovalStatus = 
+type ApprovalStatus =
  variant {
    Approved;
    Pending;
    Rejected;
  };
-type Approval = 
+type Approval =
  record {
    body: text;
    createdAt: int;
@@ -181,25 +243,25 @@ type Approval =
    status: ApprovalStatus;
    title: text;
  };
-type AgentResponse = 
+type AgentResponse =
  record {
    answer: text;
    createdAt: int;
    id: nat;
    scope: text;
  };
-type AccessRequestStatus = 
+type AccessRequestStatus =
  variant {
    Approved;
    Pending;
    Rejected;
  };
-type AccessRequestReview = 
+type AccessRequestReview =
  record {
    request: AccessRequest;
    status: AccessRequestStatus;
  };
-type AccessRequest = 
+type AccessRequest =
  record {
    createdAt: int;
    email: text;
@@ -220,18 +282,28 @@ service : {
    (DocumentRecord);
   create_project: (clientId: nat, name: text, summary: text) -> (Project);
   create_task: (projectId: nat, title: text, assignee: text) -> (Task);
+  export_state_snapshot: () -> (StateSnapshot) query;
   get_client_portal: (clientId: nat) -> (opt ClientPortalView) query;
   get_my_client_portals: () -> (vec ClientPortalView) query;
+  get_my_roles: () -> (vec RoleGrant) query;
   get_my_workspace: () -> (opt WorkspaceView) query;
   get_public_demo: () -> (opt PublicDemoView) query;
+  get_system_info: () -> (SystemInfo) query;
+  grant_role: ("principal": principal, role: Role, clientId: opt nat) ->
+   (vec RoleGrant);
   init_workspace: (name: text, profile: text) -> (Workspace);
   list_access_request_history: () -> (vec AccessRequestReview) query;
   list_access_requests: () -> (vec AccessRequest) query;
   list_audit: (offset: nat, limit: nat) -> (vec AuditEvent) query;
+  list_role_grants: () -> (vec RoleGrant) query;
   reject_access_request: (requestId: nat, reason: text) -> (AccessRequest);
   request_operator_access: (email: text, note: text) -> (AccessRequest);
   respond_approval: (approvalId: nat, decision: ApprovalStatus, comment:
    text) -> (Approval);
+  revoke_role: ("principal": principal, role: Role, clientId: opt nat) ->
+   (vec RoleGrant);
+  rotate_client_principal: (clientId: nat, "principal": principal) ->
+   (Client);
   seed_demo: () -> (WorkspaceView);
   update_project_status: (projectId: nat, status: ProjectStatus) -> (Project);
   update_task_status: (taskId: nat, status: TaskStatus) -> (Task);

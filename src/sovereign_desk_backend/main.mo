@@ -6,6 +6,9 @@ import Text "mo:base/Text";
 import Time "mo:base/Time";
 
 persistent actor {
+  let bootstrapOwner : Principal = Principal.fromText("up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe");
+  let currentSchemaVersion : Nat = 2;
+
   public type Workspace = {
     id : Nat;
     name : Text;
@@ -98,6 +101,53 @@ persistent actor {
     audit : [AuditEvent];
   };
 
+  public type StateCounts = {
+    clients : Nat;
+    projects : Nat;
+    tasks : Nat;
+    approvals : Nat;
+    documents : Nat;
+    notes : Nat;
+    audit : Nat;
+    accessRequests : Nat;
+    roleGrants : Nat;
+  };
+
+  public type SystemInfo = {
+    schemaVersion : Nat;
+    backendName : Text;
+    workspaceInitialized : Bool;
+    owner : ?Principal;
+    counts : StateCounts;
+  };
+
+  public type StateSnapshot = {
+    schemaVersion : Nat;
+    exportedAt : Int;
+    workspace : ?Workspace;
+    clients : [Client];
+    projects : [Project];
+    tasks : [Task];
+    approvals : [Approval];
+    documents : [DocumentRecord];
+    notes : [Note];
+    audit : [AuditEvent];
+    accessRequests : [AccessRequest];
+    approvedAccessRequestIds : [Nat];
+    rejectedAccessRequestIds : [Nat];
+    roleGrants : [RoleGrant];
+    nextWorkspaceId : Nat;
+    nextClientId : Nat;
+    nextProjectId : Nat;
+    nextTaskId : Nat;
+    nextApprovalId : Nat;
+    nextDocumentId : Nat;
+    nextNoteId : Nat;
+    nextAuditId : Nat;
+    nextAgentResponseId : Nat;
+    nextAccessRequestId : Nat;
+  };
+
   public type ClientPortalView = {
     client : Client;
     projects : [Project];
@@ -127,6 +177,15 @@ persistent actor {
   public type AccessRequestReview = {
     request : AccessRequest;
     status : AccessRequestStatus;
+  };
+
+  public type Role = { #Owner; #Admin; #Operator; #Client; #Reviewer };
+
+  public type RoleGrant = {
+    principal : Principal;
+    role : Role;
+    clientId : ?Nat;
+    createdAt : Int;
   };
 
   public type PublicWorkspace = {
@@ -211,6 +270,7 @@ persistent actor {
   var accessRequests : [AccessRequest] = [];
   var approvedAccessRequestIds : [Nat] = [];
   var rejectedAccessRequestIds : [Nat] = [];
+  var roleGrants : [RoleGrant] = [];
 
   var nextWorkspaceId : Nat = 1;
   var nextClientId : Nat = 1;
@@ -227,6 +287,20 @@ persistent actor {
     Time.now()
   };
 
+  func stateCounts() : StateCounts {
+    {
+      clients = Array.size(clients);
+      projects = Array.size(projects);
+      tasks = Array.size(tasks);
+      approvals = Array.size(approvals);
+      documents = Array.size(documents);
+      notes = Array.size(notes);
+      audit = Array.size(audit);
+      accessRequests = Array.size(accessRequests);
+      roleGrants = Array.size(roleGrants);
+    }
+  };
+
   func isOwner(caller : Principal) : Bool {
     switch (workspace) {
       case (?w) { caller == w.owner };
@@ -234,8 +308,40 @@ persistent actor {
     }
   };
 
+  func sameRole(a : Role, b : Role) : Bool {
+    switch (a, b) {
+      case (#Owner, #Owner) { true };
+      case (#Admin, #Admin) { true };
+      case (#Operator, #Operator) { true };
+      case (#Client, #Client) { true };
+      case (#Reviewer, #Reviewer) { true };
+      case (_) { false };
+    }
+  };
+
+  func hasRole(caller : Principal, role : Role) : Bool {
+    Array.find<RoleGrant>(
+      roleGrants,
+      func(grant) {
+        grant.principal == caller and sameRole(grant.role, role)
+      },
+    ) != null
+  };
+
+  func isLegacyAdmin(caller : Principal) : Bool {
+    Array.find<Principal>(admins, func(p) { p == caller }) != null
+  };
+
+  func canGovern(caller : Principal) : Bool {
+    isOwner(caller) or hasRole(caller, #Admin)
+  };
+
   func isAdmin(caller : Principal) : Bool {
-    isOwner(caller) or Array.find<Principal>(admins, func(p) { p == caller }) != null
+    canGovern(caller) or hasRole(caller, #Operator) or isLegacyAdmin(caller)
+  };
+
+  func canOperate(caller : Principal) : Bool {
+    isAdmin(caller)
   };
 
   func requireAuthenticated(caller : Principal) {
@@ -246,8 +352,29 @@ persistent actor {
 
   func requireAdmin(caller : Principal) {
     requireAuthenticated(caller);
-    if (not isAdmin(caller)) {
+    if (not canOperate(caller)) {
       Debug.trap("caller is not an admin");
+    };
+  };
+
+  func requireGovernance(caller : Principal) {
+    requireAuthenticated(caller);
+    if (not canGovern(caller)) {
+      Debug.trap("caller is not a governance principal");
+    };
+  };
+
+  func requireOwner(caller : Principal) {
+    requireAuthenticated(caller);
+    if (not isOwner(caller)) {
+      Debug.trap("caller is not the owner");
+    };
+  };
+
+  func requireBootstrapOwner(caller : Principal) {
+    requireAuthenticated(caller);
+    if (caller != bootstrapOwner) {
+      Debug.trap("bootstrap owner required");
     };
   };
 
@@ -261,13 +388,67 @@ persistent actor {
     };
   };
 
+  func isHexChar(char : Char) : Bool {
+    switch (char) {
+      case ('0') { true };
+      case ('1') { true };
+      case ('2') { true };
+      case ('3') { true };
+      case ('4') { true };
+      case ('5') { true };
+      case ('6') { true };
+      case ('7') { true };
+      case ('8') { true };
+      case ('9') { true };
+      case ('a') { true };
+      case ('b') { true };
+      case ('c') { true };
+      case ('d') { true };
+      case ('e') { true };
+      case ('f') { true };
+      case ('A') { true };
+      case ('B') { true };
+      case ('C') { true };
+      case ('D') { true };
+      case ('E') { true };
+      case ('F') { true };
+      case (_) { false };
+    }
+  };
+
+  func requireSha256Hash(value : Text) {
+    if (Text.size(value) != 71 or not Text.startsWith(value, #text "sha256:")) {
+      Debug.trap("content hash must be sha256:<64 hex>");
+    };
+    let chars = Text.toArray(value);
+    var index : Nat = 7;
+    while (index < 71) {
+      if (not isHexChar(chars[index])) {
+        Debug.trap("content hash must be sha256:<64 hex>");
+      };
+      index += 1;
+    };
+  };
+
+  func redactedAuditSummary(action : Text, summary : Text) : Text {
+    switch (action) {
+      case ("access.requested") { "Access request recorded" };
+      case ("access.approved") { "Access request approved" };
+      case ("access.rejected") { "Access request rejected" };
+      case ("approval.responded") { "Approval response recorded" };
+      case ("document.added") { "Document metadata recorded" };
+      case ("note.created") { "Project note recorded" };
+      case (_) { summary };
+    }
+  };
+
   func addAudit(actorPrincipal : Principal, action : Text, target : Text, summary : Text) {
     let event : AuditEvent = {
       id = nextAuditId;
       actorPrincipal;
       action;
       target;
-      summary;
+      summary = redactedAuditSummary(action, summary);
       createdAt = now();
     };
     nextAuditId += 1;
@@ -283,7 +464,7 @@ persistent actor {
   };
 
   func canAccessClient(caller : Principal, client : Client) : Bool {
-    if (isAdmin(caller)) {
+    if (canOperate(caller)) {
       true
     } else switch (client.portalPrincipal) {
       case (?portalPrincipal) { portalPrincipal == caller };
@@ -319,11 +500,102 @@ persistent actor {
     }
   };
 
+  func roleAlreadyGranted(principal : Principal, role : Role, clientId : ?Nat) : Bool {
+    Array.find<RoleGrant>(
+      roleGrants,
+      func(grant) {
+        grant.principal == principal and sameRole(grant.role, role) and grant.clientId == clientId
+      },
+    ) != null
+  };
+
+  func grantRole(grantActor : Principal, principal : Principal, role : Role, clientId : ?Nat) {
+    if (roleAlreadyGranted(principal, role, clientId)) {
+      return;
+    };
+    let grant : RoleGrant = {
+      principal;
+      role;
+      clientId;
+      createdAt = now();
+    };
+    roleGrants := Array.append(roleGrants, [grant]);
+    addAudit(grantActor, "role.granted", "principal:" # Principal.toText(principal), "Role granted");
+  };
+
+  func roleGrantMatches(grant : RoleGrant, principal : Principal, role : Role, clientId : ?Nat) : Bool {
+    grant.principal == principal and sameRole(grant.role, role) and grant.clientId == clientId
+  };
+
+  func validateRoleGrant(caller : Principal, role : Role, clientId : ?Nat) {
+    switch (role) {
+      case (#Owner) { Debug.trap("owner role cannot be granted") };
+      case (#Admin) {
+        requireOwner(caller);
+        switch (clientId) {
+          case null {};
+          case (?_) { Debug.trap("admin role cannot be client-scoped") };
+        };
+      };
+      case (#Operator) {
+        switch (clientId) {
+          case null {};
+          case (?_) { Debug.trap("operator role cannot be client-scoped in v1") };
+        };
+      };
+      case (#Reviewer) {
+        switch (clientId) {
+          case null {};
+          case (?_) { Debug.trap("reviewer role cannot be client-scoped in v1") };
+        };
+      };
+      case (#Client) {
+        switch (clientId) {
+          case (?id) {
+            switch (clientById(id)) {
+              case (?_) {};
+              case null { Debug.trap("client not found") };
+            };
+          };
+          case null { Debug.trap("client role requires clientId") };
+        };
+      };
+    };
+  };
+
+  func rolesFor(caller : Principal) : [RoleGrant] {
+    let directRoles = Array.filter<RoleGrant>(roleGrants, func(grant) { grant.principal == caller });
+    if (isOwner(caller)) {
+      Array.append<RoleGrant>(
+        [{
+          principal = caller;
+          role = #Owner;
+          clientId = null;
+          createdAt = now();
+        }],
+        directRoles,
+      )
+    } else if (isLegacyAdmin(caller)) {
+      Array.append<RoleGrant>(
+        [{
+          principal = caller;
+          role = #Operator;
+          clientId = null;
+          createdAt = now();
+        }],
+        directRoles,
+      )
+    } else {
+      directRoles
+    }
+  };
+
   public shared ({ caller }) func init_workspace(name : Text, profile : Text) : async Workspace {
     requireAuthenticated(caller);
     switch (workspace) {
       case (?existing) { existing };
       case null {
+        requireBootstrapOwner(caller);
         let created : Workspace = {
           id = nextWorkspaceId;
           name;
@@ -339,13 +611,109 @@ persistent actor {
     }
   };
 
+  public query func get_system_info() : async SystemInfo {
+    {
+      schemaVersion = currentSchemaVersion;
+      backendName = "SovereignDesk AI";
+      workspaceInitialized = workspace != null;
+      owner = switch (workspace) {
+        case (?w) { ?w.owner };
+        case null { null };
+      };
+      counts = stateCounts();
+    }
+  };
+
+  public shared query ({ caller }) func export_state_snapshot() : async StateSnapshot {
+    requireOwner(caller);
+    {
+      schemaVersion = currentSchemaVersion;
+      exportedAt = now();
+      workspace;
+      clients;
+      projects;
+      tasks;
+      approvals;
+      documents;
+      notes;
+      audit;
+      accessRequests;
+      approvedAccessRequestIds;
+      rejectedAccessRequestIds;
+      roleGrants;
+      nextWorkspaceId;
+      nextClientId;
+      nextProjectId;
+      nextTaskId;
+      nextApprovalId;
+      nextDocumentId;
+      nextNoteId;
+      nextAuditId;
+      nextAgentResponseId;
+      nextAccessRequestId;
+    }
+  };
+
   public shared ({ caller }) func add_admin(principal : Principal) : async [Principal] {
-    requireAdmin(caller);
+    requireOwner(caller);
     if (Array.find<Principal>(admins, func(p) { p == principal }) == null) {
       admins := Array.append(admins, [principal]);
-      addAudit(caller, "admin.added", Principal.toText(principal), "Admin access granted");
     };
+    grantRole(caller, principal, #Admin, null);
+    addAudit(caller, "admin.added", Principal.toText(principal), "Admin access granted");
     admins
+  };
+
+  public shared query ({ caller }) func list_role_grants() : async [RoleGrant] {
+    requireGovernance(caller);
+    roleGrants
+  };
+
+  public shared ({ caller }) func grant_role(principal : Principal, role : Role, clientId : ?Nat) : async [RoleGrant] {
+    requireGovernance(caller);
+    validateRoleGrant(caller, role, clientId);
+    grantRole(caller, principal, role, clientId);
+    roleGrants
+  };
+
+  public shared ({ caller }) func revoke_role(principal : Principal, role : Role, clientId : ?Nat) : async [RoleGrant] {
+    requireGovernance(caller);
+    validateRoleGrant(caller, role, clientId);
+    let before = Array.size(roleGrants);
+    roleGrants := Array.filter<RoleGrant>(
+      roleGrants,
+      func(grant) { not roleGrantMatches(grant, principal, role, clientId) },
+    );
+    if (Array.size(roleGrants) == before) {
+      Debug.trap("role grant not found");
+    };
+    addAudit(caller, "role.revoked", "principal:" # Principal.toText(principal), "Role revoked");
+    roleGrants
+  };
+
+  public shared ({ caller }) func rotate_client_principal(clientId : Nat, principal : Principal) : async Client {
+    requireGovernance(caller);
+    var updated : ?Client = null;
+    clients := Array.map<Client, Client>(
+      clients,
+      func(client) {
+        if (client.id != clientId) {
+          client
+        } else {
+          let next : Client = { client with portalPrincipal = ?principal };
+          updated := ?next;
+          next
+        }
+      },
+    );
+    switch (updated) {
+      case (?client) {
+        grantRole(caller, principal, #Client, ?client.id);
+        addAudit(caller, "client.principal.rotated", "client:" # Nat.toText(client.id), "Client portal principal rotated");
+        client
+      };
+      case null { Debug.trap("client not found") };
+    }
   };
 
   public shared ({ caller }) func request_operator_access(email : Text, note : Text) : async AccessRequest {
@@ -371,12 +739,12 @@ persistent actor {
   };
 
   public shared query ({ caller }) func list_access_requests() : async [AccessRequest] {
-    requireAdmin(caller);
+    requireGovernance(caller);
     Array.filter<AccessRequest>(accessRequests, isPendingAccessRequest)
   };
 
   public shared query ({ caller }) func list_access_request_history() : async [AccessRequestReview] {
-    requireAdmin(caller);
+    requireGovernance(caller);
     Array.map<AccessRequest, AccessRequestReview>(
       accessRequests,
       func(request) {
@@ -389,25 +757,26 @@ persistent actor {
   };
 
   public shared ({ caller }) func approve_access_request(requestId : Nat) : async [Principal] {
-    requireAdmin(caller);
+    requireGovernance(caller);
     switch (Array.find<AccessRequest>(accessRequests, func(request) { request.id == requestId })) {
       case (?request) {
         if (not isPendingAccessRequest(request)) {
           Debug.trap("access request already reviewed");
         };
-        if (Array.find<Principal>(admins, func(p) { p == request.principal }) == null) {
-          admins := Array.append(admins, [request.principal]);
-        };
+        grantRole(caller, request.principal, #Operator, null);
         approvedAccessRequestIds := Array.append(approvedAccessRequestIds, [request.id]);
         addAudit(caller, "access.approved", "access-request:" # Nat.toText(request.id), request.email);
-        admins
+        Array.map<RoleGrant, Principal>(
+          Array.filter<RoleGrant>(roleGrants, func(grant) { sameRole(grant.role, #Operator) }),
+          func(grant) { grant.principal },
+        )
       };
       case null { Debug.trap("access request not found") };
     }
   };
 
   public shared ({ caller }) func reject_access_request(requestId : Nat, reason : Text) : async AccessRequest {
-    requireAdmin(caller);
+    requireGovernance(caller);
     requireText("rejection reason", reason, 500);
     switch (Array.find<AccessRequest>(accessRequests, func(request) { request.id == requestId })) {
       case (?request) {
@@ -423,7 +792,7 @@ persistent actor {
   };
 
   public shared query ({ caller }) func get_my_workspace() : async ?WorkspaceView {
-    if (Principal.isAnonymous(caller) or not isAdmin(caller)) {
+    if (Principal.isAnonymous(caller) or not canOperate(caller)) {
       return null;
     };
     switch (workspace) {
@@ -443,6 +812,31 @@ persistent actor {
     }
   };
 
+  public shared query ({ caller }) func get_my_roles() : async [RoleGrant] {
+    requireAuthenticated(caller);
+    let directAndLegacy = rolesFor(caller);
+    let clientRoles = Array.map<Client, RoleGrant>(
+      Array.filter<Client>(
+        clients,
+        func(client) {
+          switch (client.portalPrincipal) {
+            case (?portalPrincipal) { portalPrincipal == caller };
+            case null { false };
+          }
+        },
+      ),
+      func(client) {
+        {
+          principal = caller;
+          role = #Client;
+          clientId = ?client.id;
+          createdAt = client.createdAt;
+        }
+      },
+    );
+    Array.append<RoleGrant>(directAndLegacy, clientRoles)
+  };
+
   public query func get_public_demo() : async ?PublicDemoView {
     switch (workspace) {
       case (?w) {
@@ -456,8 +850,8 @@ persistent actor {
             clients,
             func(client) {
               {
-                name = "Demo client " # Nat.toText(client.id);
-                contactName = "Public preview";
+                name = "Aster Capital room " # Nat.toText(client.id);
+                contactName = "Verified portal contact";
               }
             },
           );
@@ -467,8 +861,8 @@ persistent actor {
               {
                 id = project.id;
                 clientId = project.clientId;
-                name = "Canister diligence room " # Nat.toText(project.id);
-                summary = "Public redacted workflow preview. Authenticated roles see project details.";
+                name = "Sovereign diligence room " # Nat.toText(project.id);
+                summary = "Public proof view for an ICP-hosted client workflow. Authenticated roles see scoped project detail.";
                 status = project.status;
               }
             },
@@ -479,8 +873,8 @@ persistent actor {
               {
                 id = task.id;
                 projectId = task.projectId;
-                title = "Redacted workflow task " # Nat.toText(task.id);
-                assignee = "role scoped";
+                title = "Role-scoped workflow task " # Nat.toText(task.id);
+                assignee = "private workspace";
                 status = task.status;
               }
             },
@@ -491,8 +885,8 @@ persistent actor {
               {
                 id = approval.id;
                 projectId = approval.projectId;
-                title = "Redacted approval gate " # Nat.toText(approval.id);
-                body = "Public preview only. Authenticated portal users see approval details.";
+                title = "Client approval checkpoint " # Nat.toText(approval.id);
+                body = "Public proof only. Authenticated portal users see approval detail.";
                 status = approval.status;
               }
             },
@@ -705,6 +1099,10 @@ persistent actor {
   ) : async Approval {
     requireAuthenticated(caller);
     requireText("approval comment", comment, 1_000);
+    switch (decision) {
+      case (#Pending) { Debug.trap("approval decision cannot be Pending") };
+      case (_) {};
+    };
     var updated : ?Approval = null;
     approvals := Array.map<Approval, Approval>(
       approvals,
@@ -719,6 +1117,10 @@ persistent actor {
               };
             };
             case null { Debug.trap("project not found") };
+          };
+          switch (approval.status) {
+            case (#Pending) {};
+            case (_) { Debug.trap("approval already resolved") };
           };
           let next : Approval = {
             approval with
@@ -754,6 +1156,7 @@ persistent actor {
     requireText("document mime type", mimeType, 120);
     requireText("encrypted key ref", encryptedKeyRef, 240);
     requireText("content hash", contentHash, 240);
+    requireSha256Hash(contentHash);
     if (sizeBytes > 2_000_000) {
       Debug.trap("document too large for MVP record limit");
     };
@@ -885,6 +1288,7 @@ persistent actor {
   public shared ({ caller }) func seed_demo() : async WorkspaceView {
     requireAuthenticated(caller);
     if (workspace == null) {
+      requireBootstrapOwner(caller);
       let created : Workspace = {
         id = nextWorkspaceId;
         name = "SovereignDesk AI";
@@ -895,6 +1299,8 @@ persistent actor {
       nextWorkspaceId += 1;
       workspace := ?created;
       addAudit(caller, "workspace.created", "workspace:" # Nat.toText(created.id), created.name);
+    } else {
+      requireAdmin(caller);
     };
 
     if (Array.size(clients) == 0) {
@@ -966,7 +1372,7 @@ persistent actor {
         mimeType = "application/pdf";
         sizeBytes = 184_000;
         encryptedKeyRef = "vetkd:test-key-placeholder";
-        contentHash = "sha256:demo";
+        contentHash = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
         createdAt = now();
       };
       nextDocumentId += 1;

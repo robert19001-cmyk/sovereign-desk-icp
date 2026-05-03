@@ -146,6 +146,61 @@ export interface PublicWorkspace {
   'name' : string,
   'profile' : string,
 }
+export type Role = { 'Operator' : null } |
+  { 'Client' : null } |
+  { 'Reviewer' : null } |
+  { 'Admin' : null } |
+  { 'Owner' : null };
+export interface RoleGrant {
+  'principal' : Principal,
+  'clientId' : [] | [bigint],
+  'createdAt' : bigint,
+  'role' : Role,
+}
+export interface StateCounts {
+  'tasks' : bigint,
+  'documents' : bigint,
+  'audit' : bigint,
+  'projects' : bigint,
+  'notes' : bigint,
+  'accessRequests' : bigint,
+  'roleGrants' : bigint,
+  'approvals' : bigint,
+  'clients' : bigint,
+}
+export interface StateSnapshot {
+  'tasks' : Array<Task>,
+  'nextDocumentId' : bigint,
+  'documents' : Array<DocumentRecord>,
+  'nextAccessRequestId' : bigint,
+  'nextAgentResponseId' : bigint,
+  'audit' : Array<AuditEvent>,
+  'projects' : Array<Project>,
+  'nextAuditId' : bigint,
+  'nextTaskId' : bigint,
+  'exportedAt' : bigint,
+  'nextApprovalId' : bigint,
+  'notes' : Array<Note>,
+  'workspace' : [] | [Workspace],
+  'nextProjectId' : bigint,
+  'accessRequests' : Array<AccessRequest>,
+  'nextClientId' : bigint,
+  'schemaVersion' : bigint,
+  'rejectedAccessRequestIds' : Array<bigint>,
+  'approvedAccessRequestIds' : Array<bigint>,
+  'nextWorkspaceId' : bigint,
+  'nextNoteId' : bigint,
+  'roleGrants' : Array<RoleGrant>,
+  'approvals' : Array<Approval>,
+  'clients' : Array<Client>,
+}
+export interface SystemInfo {
+  'workspaceInitialized' : boolean,
+  'owner' : [] | [Principal],
+  'schemaVersion' : bigint,
+  'counts' : StateCounts,
+  'backendName' : string,
+}
 export interface Task {
   'id' : bigint,
   'status' : TaskStatus,
@@ -190,17 +245,30 @@ export interface _SERVICE {
   >,
   'create_project' : ActorMethod<[bigint, string, string], Project>,
   'create_task' : ActorMethod<[bigint, string, string], Task>,
+  'export_state_snapshot' : ActorMethod<[], StateSnapshot>,
   'get_client_portal' : ActorMethod<[bigint], [] | [ClientPortalView]>,
   'get_my_client_portals' : ActorMethod<[], Array<ClientPortalView>>,
+  'get_my_roles' : ActorMethod<[], Array<RoleGrant>>,
   'get_my_workspace' : ActorMethod<[], [] | [WorkspaceView]>,
   'get_public_demo' : ActorMethod<[], [] | [PublicDemoView]>,
+  'get_system_info' : ActorMethod<[], SystemInfo>,
+  'grant_role' : ActorMethod<
+    [Principal, Role, [] | [bigint]],
+    Array<RoleGrant>
+  >,
   'init_workspace' : ActorMethod<[string, string], Workspace>,
   'list_access_request_history' : ActorMethod<[], Array<AccessRequestReview>>,
   'list_access_requests' : ActorMethod<[], Array<AccessRequest>>,
   'list_audit' : ActorMethod<[bigint, bigint], Array<AuditEvent>>,
+  'list_role_grants' : ActorMethod<[], Array<RoleGrant>>,
   'reject_access_request' : ActorMethod<[bigint, string], AccessRequest>,
   'request_operator_access' : ActorMethod<[string, string], AccessRequest>,
   'respond_approval' : ActorMethod<[bigint, ApprovalStatus, string], Approval>,
+  'revoke_role' : ActorMethod<
+    [Principal, Role, [] | [bigint]],
+    Array<RoleGrant>
+  >,
+  'rotate_client_principal' : ActorMethod<[bigint, Principal], Client>,
   'seed_demo' : ActorMethod<[], WorkspaceView>,
   'update_project_status' : ActorMethod<[bigint, ProjectStatus], Project>,
   'update_task_status' : ActorMethod<[bigint, TaskStatus], Task>,

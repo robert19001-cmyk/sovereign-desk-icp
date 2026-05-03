@@ -25,15 +25,23 @@ jobs:
       - name: Build frontend
         run: npm test
 
+      - name: Production dependency audit
+        run: npm audit --omit=dev
+
       - name: Check required docs
         run: |
           test -f README.md
           test -f SECURITY.md
           test -f ROADMAP.md
           test -f docs/reproducible-build.md
+          test -f docs/architecture.md
+          test -f docs/design-system.md
+          test -f docs/demo-script.md
 
       - name: Check public metadata
         run: |
           grep -q "v7inb-hyaaa-aaaal-qw7aq-cai" README.md
           grep -q "vyjlv-kaaaa-aaaal-qw7aa-cai" README.md
           grep -q "robert19001@gmail.com" README.md
+          grep -q "Private client workrooms" src/sovereign_desk_frontend/src/main.js
+          grep -q "schemaVersion = 2" scripts/product-health.mjs

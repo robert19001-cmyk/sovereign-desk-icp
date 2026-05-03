@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   const backendCanisterId =
     process.env.CANISTER_ID_SOVEREIGN_DESK_BACKEND ||
     env.CANISTER_ID_SOVEREIGN_DESK_BACKEND ||
-    "uzt4z-lp777-77774-qaabq-cai";
+    "vyjlv-kaaaa-aaaal-qw7aa-cai";
 
   return {
     root: resolve(__dirname),

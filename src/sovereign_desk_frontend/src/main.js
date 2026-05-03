@@ -10,7 +10,7 @@ const MAINNET_HOST = "https://icp-api.io";
 const FRONTEND_CANISTER_ID = "v7inb-hyaaa-aaaal-qw7aq-cai";
 const TRUST = {
   controller: "up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe",
-  backendModuleHash: "0x3a0e51127ce0070247c44ff77e7b91b2d998dc8239e9474b0ddd4b133564a42d",
+  backendModuleHash: "0xa7d5a990620fcf61baa358abd574acf7563ba81b12f5fec5f7ffa7479e4554ed",
   frontendModuleHash: "0x04e565b3425fe7510ee16b02adcfe3f01abc9a2725c82a21cb08969241debd62",
   governance: "Single developer controller; next step is hardware-backed identity, multisig, or SNS.",
   source: "git@github.com:robert19001-cmyk/sovereign-desk-icp.git",
@@ -27,12 +27,17 @@ const state = {
   actor: null,
   principal: "anonymous",
   isAuthenticated: false,
+  roles: [],
+  governanceAccess: false,
   operatorAccess: false,
   clientPortalAccess: false,
   accessMode: "public",
   workspaceView: null,
   portalView: null,
+  activeClientId: "",
+  activeProjectId: "",
   accessRequests: [],
+  roleGrants: [],
   agentResponse: null,
   loading: false,
   error: "",
@@ -42,7 +47,7 @@ const state = {
 const app = document.querySelector("#app");
 
 function isLocal() {
-  return DFX_NETWORK !== "ic" || window.location.hostname.includes("localhost") || window.location.hostname === "127.0.0.1";
+  return DFX_NETWORK !== "ic" && (window.location.hostname.includes("localhost") || window.location.hostname === "127.0.0.1");
 }
 
 async function createBackendActor(identity) {
@@ -83,6 +88,14 @@ function principalText(value) {
   return value?.toText ? value.toText() : String(value || "");
 }
 
+function idText(value) {
+  return natText(value);
+}
+
+function sameId(left, right) {
+  return idText(left) === idText(right);
+}
+
 function statusClass(status) {
   const name = variantName(status);
   if (name === "Pending" || name === "WaitingOnClient" || name === "Open") return "waiting";
@@ -95,9 +108,39 @@ function statusPill(status) {
   return `<span class="pill ${statusClass(status)}">${e(name)}</span>`;
 }
 
+function taskStatusVariant(name) {
+  if (name === "Done") return { Done: null };
+  if (name === "InProgress") return { InProgress: null };
+  return { Open: null };
+}
+
+function auditTitle(event) {
+  if (event.summary && event.summary !== "Public audit event redacted") return event.summary;
+  const labels = {
+    "workspace.seeded": "Workspace initialized",
+    "project.created": "Project room created",
+    "task.created": "Workflow task recorded",
+    "approval.requested": "Approval gate opened",
+    "approval.responded": "Approval decision captured",
+    "document.added": "Document hash recorded",
+    "note.created": "Client note appended",
+    "agent.response.created": "AI operating brief generated",
+    "access.requested": "Operator access requested",
+    "access.approved": "Operator access granted",
+    "access.rejected": "Operator access rejected",
+  };
+  return labels[event.action] || "Canister event recorded";
+}
+
+function auditTarget(event) {
+  if (event.target && event.target !== "redacted") return event.target;
+  return "public-safe audit record";
+}
+
 function metric(label, value, hint) {
   return `
     <article class="metric">
+      <i aria-hidden="true"></i>
       <span>${e(label)}</span>
       <strong>${e(value)}</strong>
       <p>${e(hint)}</p>
@@ -106,22 +149,98 @@ function metric(label, value, hint) {
 }
 
 function currentClient(view) {
-  return view?.clients?.[0] || null;
+  const clients = view?.clients || [];
+  return clients.find((client) => sameId(client.id, state.activeClientId)) || clients[0] || null;
 }
 
 function currentProject(view) {
-  return view?.projects?.[0] || null;
+  const client = currentClient(view);
+  const projects = view?.projects || [];
+  const scoped = client ? projects.filter((project) => sameId(project.clientId, client.id)) : projects;
+  return scoped.find((project) => sameId(project.id, state.activeProjectId)) || scoped[0] || projects[0] || null;
+}
+
+function currentTasks(view) {
+  const project = currentProject(view);
+  const tasks = view?.tasks || [];
+  return project ? tasks.filter((task) => sameId(task.projectId, project.id)) : tasks;
+}
+
+function currentApprovals(view) {
+  const project = currentProject(view);
+  const approvals = view?.approvals || [];
+  return project ? approvals.filter((approval) => sameId(approval.projectId, project.id)) : approvals;
+}
+
+function currentDocuments(view) {
+  const project = currentProject(view);
+  const documents = view?.documents || [];
+  return project ? documents.filter((doc) => sameId(doc.projectId, project.id)) : documents;
+}
+
+function currentNotes(view) {
+  const project = currentProject(view);
+  const notes = view?.notes || [];
+  return project ? notes.filter((note) => sameId(note.projectId, project.id)) : notes;
 }
 
 function currentApproval(view) {
-  return view?.approvals?.find((item) => variantName(item.status) === "Pending") || view?.approvals?.[0] || null;
+  const approvals = currentApprovals(view);
+  return approvals.find((item) => variantName(item.status) === "Pending") || approvals[0] || null;
+}
+
+function normalizeActiveContext(view) {
+  const clients = view?.clients || [];
+  const currentOrFirstClient = clients.find((client) => sameId(client.id, state.activeClientId)) || clients[0] || null;
+  state.activeClientId = currentOrFirstClient ? idText(currentOrFirstClient.id) : "";
+
+  const projects = view?.projects || [];
+  const scopedProjects = currentOrFirstClient
+    ? projects.filter((project) => sameId(project.clientId, currentOrFirstClient.id))
+    : projects;
+  const currentOrFirstProject =
+    scopedProjects.find((project) => sameId(project.id, state.activeProjectId)) ||
+    scopedProjects[0] ||
+    projects[0] ||
+    null;
+  state.activeProjectId = currentOrFirstProject ? idText(currentOrFirstProject.id) : "";
 }
 
 function accessLabel() {
+  if (state.governanceAccess) return "Governance access active";
   if (state.operatorAccess) return "Operator access active";
   if (state.clientPortalAccess) return "Client portal active";
   if (state.isAuthenticated) return "Signed read-only";
   return "Public read-only";
+}
+
+function roleName(role) {
+  return variantName(role);
+}
+
+function hasRole(name) {
+  return (state.roles || []).some((grant) => roleName(grant.role) === name);
+}
+
+function productOutcomes(view) {
+  const project = currentProject(view);
+  return [
+    {
+      label: "Client workroom",
+      value: project?.name || "Sovereign workspace",
+      body: "A scoped client room with tasks, approvals, document records, notes, and a public-safe proof surface.",
+    },
+    {
+      label: "Approval control",
+      value: "Human-gated",
+      body: "Clients and operators write decisions through Internet Identity instead of a password database.",
+    },
+    {
+      label: "Audit posture",
+      value: "Inspectable",
+      body: "Public reviewers can inspect canister IDs, module hashes, controller, and live workflow signals.",
+    },
+  ];
 }
 
 function canRespondApproval() {
@@ -159,14 +278,14 @@ function capabilityList(view) {
   return capabilities.map((item) => `<li>${e(item)}</li>`).join("");
 }
 
-function renderProofStrip(view) {
+function renderProofStrip(view, id = "overview") {
   const client = currentClient(view);
   const project = currentProject(view);
-  const pendingApprovals = view?.approvals?.filter((item) => variantName(item.status) === "Pending").length || 0;
-  const openTasks = view?.tasks?.filter((task) => variantName(task.status) !== "Done").length || 0;
+  const pendingApprovals = currentApprovals(view).filter((item) => variantName(item.status) === "Pending").length;
+  const openTasks = currentTasks(view).filter((task) => variantName(task.status) !== "Done").length;
 
   return `
-    <section id="overview" class="proof-strip" aria-label="Canister proof">
+    <section id="${e(id)}" class="proof-strip" aria-label="Canister proof">
       ${metric("Network", "ICP", "Public mainnet deployment")}
       ${metric("Canister", shortPrincipal(BACKEND_CANISTER_ID), "Backend state source")}
       ${metric("Client", client?.name || "Ready", project?.name || "No project loaded")}
@@ -175,62 +294,180 @@ function renderProofStrip(view) {
   `;
 }
 
+function renderExperienceTabs(view) {
+  const taskCount = view?.tasks?.length || 0;
+  const docCount = view?.documents?.length || 0;
+  const auditCount = view?.audit?.length || 0;
+  const tabs = [
+    ["Reviewer", "Proof packet", "Verify live canisters, public redaction, module hashes, and the builder disclosure without signing in."],
+    ["Operator", "Workspace cockpit", `Manage ${taskCount} tasks, approval gates, document metadata, notes, roles, and upgrade checks from one role-gated panel.`],
+    ["Client", "Scoped portal", `Review ${docCount} document records, append notes, and respond to approval requests without seeing operator controls.`],
+    ["Trust", "Release evidence", `${auditCount} audit events, schema version, snapshot export, and repeatable QA gates are exposed for review.`],
+  ];
+  return `
+    <section class="experience-tabs reveal" aria-label="Product modules">
+      <div class="tab-strip" role="list" aria-label="SovereignDesk product tabs">
+        ${tabs.map(([label], index) => `<a href="#${index === 0 ? "review" : index === 1 ? "operate" : index === 2 ? "portal" : "trust"}" class="${index === 0 ? "active" : ""}" role="listitem">${e(label)}</a>`).join("")}
+      </div>
+      <div class="tab-panels">
+        ${tabs.map(([label, title, body], index) => `
+          <article class="${index === 0 ? "featured" : ""}">
+            <span>${e(label)}</span>
+            <strong>${e(title)}</strong>
+            <p>${e(body)}</p>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderHero(view) {
+  const client = currentClient(view);
   const project = currentProject(view);
+  const taskTotal = currentTasks(view).length;
+  const auditTotal = view?.audit?.length || 0;
+  const approvalTotal = currentApprovals(view).length;
   const authenticatedCopy = state.operatorAccess
     ? `Operator access active as ${shortPrincipal(state.principal)}`
     : state.clientPortalAccess
       ? `Client portal active as ${shortPrincipal(state.principal)}. Approval responses write to the canister.`
       : state.isAuthenticated
       ? `Signed in as ${shortPrincipal(state.principal)}. This principal is not an operator yet, so writes stay locked.`
-      : "Public read-only showcase. Login identifies your principal and unlocks operator tools after admin approval.";
+      : "Public read-only product preview. Login identifies your principal and unlocks operator tools after admin approval.";
 
   return `
-    <section class="hero" aria-labelledby="hero-title">
+    <section class="hero product-hero reveal" aria-labelledby="hero-title">
       <div class="hero-copy">
         <div class="brand-row">
           <span class="canister-mark" aria-hidden="true"></span>
-          <span>SovereignDesk on Internet Computer</span>
+          <span>ICP-native client operations</span>
         </div>
-        <h1 id="hero-title">Client operations, approvals, and AI work logs running from canisters.</h1>
-        <p class="hero-lede">${e(project?.summary || "A sovereign client portal for high-trust teams: no external database, no centralized hosting layer, no hidden admin panel.")}</p>
-        <div class="hero-actions">
-          ${state.isAuthenticated ? `
+        <h1 id="hero-title">SovereignDesk</h1>
+        <p class="hero-lede">A private client workroom for approvals, document records, notes, and audit history. Built on ICP canisters, with public proof outside and role-scoped workflow after Internet Identity.</p>
+        ${state.isAuthenticated ? `
+          <div class="hero-actions">
             <button type="button" data-action="refresh">Refresh state</button>
             <button type="button" data-action="logout" class="secondary">Logout</button>
-          ` : `
-            <button type="button" data-action="login">Login with Internet Identity</button>
-            <a class="button secondary" href="https://dashboard.internetcomputer.org/canister/${e(BACKEND_CANISTER_ID)}" target="_blank" rel="noreferrer">Inspect canister</a>
-          `}
-        </div>
+          </div>
+        ` : `
+          <div class="login-gateway" aria-label="Secure application entry">
+            <div>
+              <span>Secure entry</span>
+              <strong>Open the product panel</strong>
+              <p>Internet Identity unlocks the app dashboard. Public visitors stay in reviewer mode with redacted data.</p>
+            </div>
+            <div class="gateway-actions">
+              <button type="button" data-action="login">Login with Internet Identity</button>
+              <a class="button secondary" href="https://dashboard.internetcomputer.org/canister/${e(BACKEND_CANISTER_ID)}" target="_blank" rel="noreferrer">Inspect canister</a>
+            </div>
+          </div>
+        `}
         <p class="identity-line">${e(authenticatedCopy)}</p>
-      </div>
-      <div class="signal-panel" aria-label="Deployment signal">
-        <div class="signal-orbit" aria-hidden="true">
-          <span></span><span></span><span></span><span></span>
+        <div class="quick-actions" aria-label="Public quick actions">
+          <a href="#clients">Open workroom</a>
+          <a href="#trust">Verify canisters</a>
+          ${state.isAuthenticated ? '<a href="#access">Access status</a>' : '<button type="button" data-action="login">Request access</button>'}
         </div>
-        <dl>
-          <div><dt>Frontend</dt><dd>Asset canister</dd></div>
-          <div><dt>Backend</dt><dd>${e(shortPrincipal(BACKEND_CANISTER_ID))}</dd></div>
-          <div><dt>Access</dt><dd>${e(accessLabel())}</dd></div>
-          <div><dt>State</dt><dd>Motoko persistent actor</dd></div>
-        </dl>
+        <div class="hero-proof" aria-label="Live product counters">
+          <div><strong>${e(taskTotal)}</strong><span>workflow tasks</span></div>
+          <div><strong>${e(approvalTotal)}</strong><span>approval gates</span></div>
+          <div><strong>${e(auditTotal)}</strong><span>audit events</span></div>
+        </div>
       </div>
+      <div class="product-window reveal-card" aria-label="SovereignDesk product preview">
+        <div class="window-bar">
+          <span></span><span></span><span></span>
+          <strong>${e(client?.name || "Client room")}</strong>
+          <em>Mainnet</em>
+        </div>
+        <div class="window-body">
+          <section class="room-summary">
+            <span>Active workroom</span>
+            <strong>${e(project?.name || "Sovereign diligence room")}</strong>
+            <p>${e(project?.summary || "A scoped room for client approvals, document records, and audit-backed execution.")}</p>
+          </section>
+          <section class="room-grid" aria-label="Room status">
+            <article><span>Tasks</span><strong>${e(taskTotal)}</strong></article>
+            <article><span>Approvals</span><strong>${e(approvalTotal)}</strong></article>
+            <article><span>Audit</span><strong>${e(auditTotal)}</strong></article>
+          </section>
+          <section class="room-flow" aria-label="Product workflow">
+            <div><span>01</span><strong>Invite client</strong><p>Bind Internet Identity to a scoped portal.</p></div>
+            <div><span>02</span><strong>Request approval</strong><p>Decision writes pass through canister roles.</p></div>
+            <div><span>03</span><strong>Publish proof</strong><p>Expose hashes and IDs without private client data.</p></div>
+          </section>
+        </div>
+        <div class="proof-dock" aria-label="Canister proof">
+          <div><span>Frontend</span><strong>${e(shortPrincipal(FRONTEND_CANISTER_ID))}</strong></div>
+          <div><span>Backend</span><strong>${e(shortPrincipal(BACKEND_CANISTER_ID))}</strong></div>
+          <div><span>Access</span><strong>${e(accessLabel())}</strong></div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderReviewerFlow(view) {
+  const project = currentProject(view);
+  const client = currentClient(view);
+  const publicBrief = [
+    ["01", "Verify deployment", "Open the canister dashboard, inspect IDs, and compare the live module hash."],
+    ["02", "Read the public proof", "Review the redacted workflow without seeing private client data."],
+    ["03", "Test identity gates", "Login with Internet Identity. Writes stay locked until the principal has a role."],
+    ["04", "Contact the builder", "The creator signal is visible, but operational data remains protected."],
+  ];
+  return `
+    <section id="review" class="reviewer-flow reveal" aria-label="ICP reviewer flow">
+      <div class="reviewer-lead">
+        <div class="section-heading">
+          <span>Reviewer flow</span>
+          <h2>Review the product in 90 seconds.</h2>
+        </div>
+        <p>
+          This page is intentionally structured as a diligence packet: deployment proof first,
+          product workflow second, creator signal last.
+        </p>
+      </div>
+      <div class="reviewer-steps">
+        ${publicBrief.map(([num, title, body]) => `
+          <article>
+            <small>${e(num)}</small>
+            <strong>${e(title)}</strong>
+            <p>${e(body)}</p>
+          </article>
+        `).join("")}
+      </div>
+      <aside class="reviewer-packet" aria-label="Live packet summary">
+        <span>Live packet</span>
+        <strong>${e(project?.name || "Sovereign diligence room")}</strong>
+        <dl>
+          <div><dt>Client surface</dt><dd>${e(client?.name || "Role-scoped room")}</dd></div>
+          <div><dt>Backend</dt><dd>${e(shortPrincipal(BACKEND_CANISTER_ID))}</dd></div>
+          <div><dt>Identity model</dt><dd>Internet Identity + roles</dd></div>
+          <div><dt>Privacy posture</dt><dd>Redacted public proof</dd></div>
+        </dl>
+        <div class="packet-actions">
+          <a class="button" href="#trust">Verify now</a>
+          <a class="button secondary" href="#creator">Contact builder</a>
+        </div>
+      </aside>
     </section>
   `;
 }
 
 function renderReviewRail() {
   const items = [
-    ["Mainnet", "Frontend and backend are deployed as ICP canisters."],
-    ["Redacted public demo", "Visitors can inspect the workflow without exposing private workspace data."],
-    ["Internet Identity", "Writes are gated by role-aware principals, not a centralized auth server."],
-    ["Trust Center", "Canister IDs, module hashes, controller, and verification path are visible in-app."],
+    ["01", "Mainnet", "Frontend and backend are deployed as ICP canisters."],
+    ["02", "Public proof", "Visitors inspect workflow posture without exposing private workspace data."],
+    ["03", "Identity gates", "Writes are gated by role-aware principals, not a centralized auth server."],
+    ["04", "Trust Center", "Canister IDs, module hashes, controller, and verification path are visible in-app."],
   ];
   return `
-    <section class="review-rail" aria-label="Reviewer highlights">
-      ${items.map(([title, body]) => `
+    <section class="review-rail reveal" aria-label="Reviewer highlights">
+      ${items.map(([num, title, body]) => `
         <article>
+          <small>${e(num)}</small>
           <span>${e(title)}</span>
           <p>${e(body)}</p>
         </article>
@@ -239,22 +476,54 @@ function renderReviewRail() {
   `;
 }
 
+function renderProductBrief(view) {
+  return `
+    <section class="product-brief reveal" aria-label="Product operating model">
+      <div class="brief-copy">
+        <div class="section-heading">
+          <span>Product system</span>
+          <h2>A working ICP product surface with live canister proof.</h2>
+        </div>
+        <p>
+          SovereignDesk combines a public proof layer, private role-scoped workspace, and operator console.
+          The public view is deliberately redacted; signed users get access based on canister state.
+        </p>
+      </div>
+      <div class="brief-grid">
+        ${productOutcomes(view).map((item) => `
+          <article>
+            <span>${e(item.label)}</span>
+            <strong>${e(item.value)}</strong>
+            <p>${e(item.body)}</p>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderWorkflow(view) {
   const client = currentClient(view);
   const project = currentProject(view);
-  const tasks = (view?.tasks || []).map((task) => `
+  const tasks = currentTasks(view).map((task) => `
     <li>
       <div>
         <strong>${e(task.title)}</strong>
         <span>${e(task.assignee)} lane</span>
       </div>
-      ${statusPill(task.status)}
+      <div class="task-control">
+        ${statusPill(task.status)}
+        ${state.operatorAccess ? `
+          <button type="button" class="tiny" data-action="task-status" data-task-id="${e(task.id)}" data-status="InProgress">Start</button>
+          <button type="button" class="tiny" data-action="task-status" data-task-id="${e(task.id)}" data-status="Done">Done</button>
+        ` : ""}
+      </div>
     </li>
   `).join("");
 
   return `
-    <section id="clients" class="section-grid">
-      <article class="surface project-surface">
+    <section id="clients" class="section-grid reveal">
+      <article class="surface project-surface elevated">
         <div class="section-heading">
           <span>Workspace</span>
           <h2>${e(project?.name || "Project room not initialized")}</h2>
@@ -269,7 +538,7 @@ function renderWorkflow(view) {
         <ul class="task-stack">${tasks || "<li><strong>No tasks yet</strong><span>Seed or create a task to begin.</span></li>"}</ul>
       </article>
 
-      <article id="portal" class="surface portal-surface">
+      <article id="portal" class="surface portal-surface elevated">
         ${renderApprovalCard(view)}
       </article>
     </section>
@@ -304,19 +573,24 @@ function renderAgentAndAudit(view) {
   const audit = (view?.audit || []).slice(-7).reverse().map((event) => `
     <li>
       <span>${e(event.action)}</span>
-      <strong>${e(event.summary)}</strong>
-      <small>${e(event.target || shortPrincipal(event.actorPrincipal))}</small>
+      <strong>${e(auditTitle(event))}</strong>
+      <small>${e(auditTarget(event))}</small>
     </li>
   `).join("");
+  const publicBrief = [
+    "1. Client portal is available as a public proof surface.",
+    "2. Approval decisions require Internet Identity and role checks.",
+    "3. Audit records prove workflow activity without exposing client data.",
+  ].join("\n");
 
   return `
-    <section class="section-grid">
-      <article id="agent" class="surface agent-surface">
+    <section class="section-grid reveal">
+      <article id="agent" class="surface agent-surface elevated">
         <div class="section-heading">
-          <span>AI Employee</span>
-          <h2>Human-approved operating brief</h2>
+          <span>Operating brief</span>
+          <h2>Human-approved review summary</h2>
         </div>
-        <p class="agent-copy">${e(state.agentResponse?.answer || "The AI Employee summarizes canister state into client-ready next steps. Write access is restricted to authenticated operators.")}</p>
+        <p class="agent-copy">${e(state.agentResponse?.answer || publicBrief)}</p>
         ${state.operatorAccess ? `
           <form class="inline-form" data-action="ask-agent">
             <label>
@@ -330,7 +604,7 @@ function renderAgentAndAudit(view) {
         `}
       </article>
 
-      <article id="audit" class="surface audit-surface">
+      <article id="audit" class="surface audit-surface elevated">
         <div class="section-heading">
           <span>Audit trail</span>
           <h2>Signed work history</h2>
@@ -343,7 +617,7 @@ function renderAgentAndAudit(view) {
 
 function renderCapabilities(view) {
   return `
-    <section id="architecture" class="architecture">
+    <section id="architecture" class="architecture reveal">
       <div class="section-heading">
         <span>Architecture</span>
         <h2>Built to be inspected by ICP engineers.</h2>
@@ -355,8 +629,13 @@ function renderCapabilities(view) {
 
 function renderTrustCenter() {
   const statusCommand = `dfx canister status --network ic ${BACKEND_CANISTER_ID}`;
+  const hardening = [
+    ["Controller", "Move control rights to a hardware-backed or passphrase-protected ICP identity."],
+    ["Encrypted rooms", "Add certified document metadata and vetKeys for client-side key handling."],
+    ["AI service", "Split AI work logs into a dedicated ICP service with explicit human approval."],
+  ];
   return `
-    <section id="trust" class="trust-center">
+    <section id="trust" class="trust-center reveal">
       <div class="section-heading">
         <span>Trust Center</span>
         <h2>Trust Center for ICP reviewers.</h2>
@@ -365,12 +644,18 @@ function renderTrustCenter() {
         <article>
           <span>Frontend canister</span>
           <strong>${e(FRONTEND_CANISTER_ID)}</strong>
-          <a href="https://dashboard.internetcomputer.org/canister/${e(FRONTEND_CANISTER_ID)}" target="_blank" rel="noreferrer">Open dashboard</a>
+          <div class="trust-actions">
+            <button type="button" class="tiny" data-action="copy-value" data-copy-value="${e(FRONTEND_CANISTER_ID)}">Copy</button>
+            <a href="https://dashboard.internetcomputer.org/canister/${e(FRONTEND_CANISTER_ID)}" target="_blank" rel="noreferrer">Open dashboard</a>
+          </div>
         </article>
         <article>
           <span>Backend canister</span>
           <strong>${e(BACKEND_CANISTER_ID)}</strong>
-          <a href="https://dashboard.internetcomputer.org/canister/${e(BACKEND_CANISTER_ID)}" target="_blank" rel="noreferrer">Open dashboard</a>
+          <div class="trust-actions">
+            <button type="button" class="tiny" data-action="copy-value" data-copy-value="${e(BACKEND_CANISTER_ID)}">Copy</button>
+            <a href="https://dashboard.internetcomputer.org/canister/${e(BACKEND_CANISTER_ID)}" target="_blank" rel="noreferrer">Open dashboard</a>
+          </div>
         </article>
         <article>
           <span>Controller</span>
@@ -380,14 +665,17 @@ function renderTrustCenter() {
         <article>
           <span>Backend module hash</span>
           <code>${e(TRUST.backendModuleHash)}</code>
+          <button type="button" class="tiny" data-action="copy-value" data-copy-value="${e(TRUST.backendModuleHash)}">Copy hash</button>
         </article>
         <article>
           <span>Asset canister module</span>
           <code>${e(TRUST.frontendModuleHash)}</code>
+          <button type="button" class="tiny" data-action="copy-value" data-copy-value="${e(TRUST.frontendModuleHash)}">Copy hash</button>
         </article>
         <article>
           <span>Verify locally</span>
           <code>${e(statusCommand)}</code>
+          <button type="button" class="tiny" data-action="copy-value" data-copy-value="${e(statusCommand)}">Copy command</button>
         </article>
         <article>
           <span>Source remote</span>
@@ -398,21 +686,28 @@ function renderTrustCenter() {
         Built on Internet Computer. This project is independent and is not affiliated with or endorsed by the DFINITY Foundation.
         Public canister responses are redacted; authenticated roles see scoped workspace or portal data.
       </p>
+      <div class="hardening-path" aria-label="Known hardening path">
+        <span>Known hardening path</span>
+        <div>
+          ${hardening.map(([title, body]) => `<article><strong>${e(title)}</strong><p>${e(body)}</p></article>`).join("")}
+        </div>
+      </div>
     </section>
   `;
 }
 
 function renderCreatorSignal() {
   return `
-    <section id="creator" class="creator-signal">
+    <section id="creator" class="creator-signal reveal">
       <div class="creator-copy">
         <div class="section-heading">
-          <span>Creator signal</span>
-          <h2>Built by ${e(CREATOR.name)} to prove useful canister-native products can ship fast.</h2>
+          <span>Maintainer</span>
+          <h2>Maintainer and controller disclosure.</h2>
         </div>
         <p>
-          SovereignDesk is a public, inspectable ICP mainnet app: Motoko state, certified asset delivery,
-          Internet Identity writes, role-aware portals, and a security-conscious public demo surface.
+          SovereignDesk is maintained by ${e(CREATOR.name)} as a public, inspectable ICP mainnet product:
+          Motoko state, certified asset delivery, Internet Identity writes, role-aware portals,
+          and a security-conscious public proof surface.
         </p>
         <div class="creator-actions">
           <a class="button" href="mailto:${e(CREATOR.email)}">Contact ${e(CREATOR.name)}</a>
@@ -429,34 +724,17 @@ function renderCreatorSignal() {
   `;
 }
 
-function renderRoadmap() {
-  const items = [
-    ["Owner identity hardening", "Move controller rights from plaintext dev identity to a hardware-backed or passphrase-protected controller."],
-    ["Real onboarding", "Invite a client by principal, bind their Internet Identity, and show only their portal."],
-    ["Encrypted vault", "Add certified document metadata now, then vetKeys for client-side encrypted keys."],
-    ["Agent canister split", "Move AI work logs into a dedicated agent canister with explicit human approval."],
-    ["Payments", "Add ckBTC/ckUSDC invoice approval and settlement flow after the portal is stable."],
-  ];
-  return `
-    <section id="roadmap" class="roadmap">
-      <div class="section-heading">
-        <span>Next upgrades</span>
-        <h2>The path from impressive demo to serious ICP product.</h2>
-      </div>
-      <ol>
-        ${items.map(([title, body]) => `<li><strong>${e(title)}</strong><span>${e(body)}</span></li>`).join("")}
-      </ol>
-    </section>
-  `;
-}
-
 function renderOperatorConsole(view) {
   if (!state.operatorAccess) {
     return "";
   }
   const client = currentClient(view);
   const project = currentProject(view);
-  const requests = (state.accessRequests || []).map((request) => {
+  const tasksInContext = currentTasks(view);
+  const approvalsInContext = currentApprovals(view);
+  const documentsInContext = currentDocuments(view);
+  const notesInContext = currentNotes(view);
+  const requests = state.governanceAccess ? (state.accessRequests || []).map((request) => {
     const principal = principalText(request.principal);
     return `
       <li>
@@ -466,26 +744,73 @@ function renderOperatorConsole(view) {
           <code>${e(principal)}</code>
         </div>
         <div class="request-actions">
-          <button type="button" data-action="approve-access-request" data-request-id="${e(natText(request.id))}" data-principal="${e(principal)}">Grant admin</button>
+          <button type="button" data-action="approve-access-request" data-request-id="${e(natText(request.id))}" data-principal="${e(principal)}">Grant operator</button>
           <button type="button" class="secondary" data-action="reject-access-request" data-request-id="${e(natText(request.id))}">Reject</button>
         </div>
       </li>
     `;
-  }).join("");
+  }).join("") : "";
+  const openTasks = tasksInContext.filter((task) => variantName(task.status) !== "Done").length;
+  const pendingApprovals = approvalsInContext.filter((approval) => variantName(approval.status) === "Pending").length;
+  const documentCount = documentsInContext.length;
+  const noteCount = notesInContext.length;
+  const roleRows = state.governanceAccess ? (state.roleGrants || []).map((grant) => `
+    <li>
+      <div>
+        <strong>${e(roleName(grant.role))}</strong>
+        <span>${grant.clientId?.length ? `client:${e(natText(grant.clientId[0]))}` : "global role"}</span>
+        <code>${e(principalText(grant.principal))}</code>
+      </div>
+      <div class="request-actions">
+        <button type="button" class="secondary" data-action="revoke-role" data-principal="${e(principalText(grant.principal))}" data-role="${e(roleName(grant.role))}" data-client-id="${grant.clientId?.length ? e(natText(grant.clientId[0])) : ""}">Revoke</button>
+      </div>
+    </li>
+  `).join("") : "";
+  const governancePanel = state.governanceAccess ? `
+    <article class="surface access-queue governance-panel">
+      <div class="section-heading">
+        <span>Governance</span>
+        <h3>Roles and client principal rotation</h3>
+      </div>
+      <ul>${roleRows || "<li><div><strong>No direct role grants</strong><span>Owner and legacy roles are derived until explicit grants are added.</span></div></li>"}</ul>
+      <div class="console-grid compact">
+        <form class="form-surface compact-form" data-action="grant-role">
+          <h3>Grant role</h3>
+          <label><span>Principal</span><input name="principal" placeholder="aaaaa-aa..." required /></label>
+          <label><span>Role</span><select name="role"><option>Operator</option><option>Reviewer</option><option>Client</option><option>Admin</option></select></label>
+          <label><span>Client ID</span><input name="clientId" placeholder="required for Client role" inputmode="numeric" /></label>
+          <button type="submit">Grant role</button>
+        </form>
+        <form class="form-surface compact-form" data-action="rotate-client-principal">
+          <h3>Rotate client principal</h3>
+          <label><span>Client ID</span><input name="clientId" value="${e(client?.id ?? 1)}" inputmode="numeric" required /></label>
+          <label><span>New portal principal</span><input name="principal" placeholder="client Internet Identity principal" required /></label>
+          <button type="submit">Rotate principal</button>
+        </form>
+      </div>
+    </article>
+  ` : "";
 
   return `
-    <section id="operate" class="operator-console">
+    <section id="operate" class="operator-console reveal">
       <div class="section-heading">
-        <span>Operator console</span>
-        <h2>Write real state to the canister</h2>
+        <span>Operations</span>
+        <h2>Today’s client work.</h2>
+      </div>
+      <div class="workflow-cockpit">
+        <article><span>Open tasks</span><strong>${e(openTasks)}</strong><p>Move active work to done and keep the activity trail clean.</p></article>
+        <article><span>Pending approvals</span><strong>${e(pendingApprovals)}</strong><p>Keep client decisions visible and locked after final response.</p></article>
+        <article><span>Document records</span><strong>${e(documentCount)}</strong><p>Hash files locally and record only metadata in the workspace.</p></article>
+        <article><span>Client notes</span><strong>${e(noteCount)}</strong><p>Capture decisions and next steps inside the workroom.</p></article>
       </div>
       <article class="surface access-queue">
         <div class="section-heading">
           <span>Access queue</span>
-          <h3>On-chain operator requests</h3>
+          <h3>${state.governanceAccess ? "On-chain operator requests" : "Governance-only queue"}</h3>
         </div>
-        <ul>${requests || "<li><div><strong>No pending requests</strong><span>Signed-in visitors can request operator review from the access panel.</span></div></li>"}</ul>
+        <ul>${state.governanceAccess ? requests || "<li><div><strong>No pending requests</strong><span>Signed-in visitors can request operator review from the access panel.</span></div></li>" : "<li><div><strong>Locked for operator role</strong><span>Operators can run workspace activity, but only owner/admin governance can approve access requests.</span></div></li>"}</ul>
       </article>
+      ${governancePanel}
       <div class="console-grid">
         <form class="surface form-surface" data-action="create-client">
           <h3>Create client</h3>
@@ -519,6 +844,25 @@ function renderOperatorConsole(view) {
           <label><span>Body</span><textarea name="body" maxlength="1000" required>Please confirm that the attached diligence packet can be shared with the buyer counsel.</textarea></label>
           <button type="submit">Request approval</button>
         </form>
+
+        <form class="surface form-surface" data-action="create-document">
+          <h3>Record document</h3>
+          <label><span>Project ID</span><input name="projectId" value="${e(project?.id ?? 1)}" inputmode="numeric" required /></label>
+          <label class="file-drop">
+            <span>Select file</span>
+            <input name="file" type="file" required />
+            <small>Browser computes SHA-256 locally and writes only metadata to the canister. MVP limit: 2 MB.</small>
+          </label>
+          <label><span>Encrypted key ref</span><input name="encryptedKeyRef" value="vetkd:client-room:key-1" maxlength="240" required /></label>
+          <button type="submit">Hash and record file</button>
+        </form>
+
+        <form class="surface form-surface" data-action="append-note">
+          <h3>Append note</h3>
+          <label><span>Project ID</span><input name="projectId" value="${e(project?.id ?? 1)}" inputmode="numeric" required /></label>
+          <label><span>Note</span><textarea name="body" maxlength="1500" required>Client requested a concise status update before the next approval gate.</textarea></label>
+          <button type="submit">Append note</button>
+        </form>
       </div>
     </section>
   `;
@@ -526,13 +870,14 @@ function renderOperatorConsole(view) {
 
 function renderPortalDetail(view) {
   if ((!state.operatorAccess && !state.clientPortalAccess) || !view) return "";
-  const documents = (view.documents || []).map((doc) => `
+  const project = currentProject(state.workspaceView);
+  const documents = (view.documents || []).filter((doc) => !project || sameId(doc.projectId, project.id)).map((doc) => `
     <div>
       <strong>${e(doc.name)}</strong>
       <span>${e(natText(doc.sizeBytes))} bytes · ${e(doc.contentHash || "hash pending")}</span>
     </div>
   `).join("");
-  const notes = (view.notes || []).map((note) => `
+  const notes = (view.notes || []).filter((note) => !project || sameId(note.projectId, project.id)).map((note) => `
     <div>
       <strong>Note</strong>
       <span>${e(note.body)}</span>
@@ -546,6 +891,14 @@ function renderPortalDetail(view) {
         <h2>${e(view.client.name)}</h2>
       </div>
       <div class="portal-grid">${documents}${notes}</div>
+      <form class="inline-form portal-note-form" data-action="append-note">
+        <input type="hidden" name="projectId" value="${e(project?.id ?? view.projects?.[0]?.id ?? 1)}" />
+        <label>
+          <span>Portal note</span>
+          <input name="body" value="Reviewed portal materials and approval context." maxlength="1500" />
+        </label>
+        <button type="submit">Append note</button>
+      </form>
     </section>
   `;
 }
@@ -556,7 +909,7 @@ function renderAccessPanel() {
   }
   if (state.clientPortalAccess && !state.operatorAccess) {
     return `
-      <section class="access-panel client-ready" id="access">
+      <section class="access-panel client-ready reveal" id="access">
         <div>
           <span class="pill live">Client portal</span>
           <h2>This Internet Identity is linked to a client portal.</h2>
@@ -570,32 +923,30 @@ function renderAccessPanel() {
     `;
   }
   if (state.operatorAccess) {
+    const roleCopy = state.governanceAccess
+      ? "Owner/admin governance is active. You can approve operator requests and run workspace operations."
+      : "Operator access is active. You can run workspace operations, while role approvals stay locked to governance.";
     return `
-      <section class="access-panel operator-ready">
+      <section class="access-panel operator-ready reveal">
         <div>
-          <span class="pill live">Operator</span>
+          <span class="pill live">${state.governanceAccess ? "Governance" : "Operator"}</span>
           <h2>Write access is active for this Internet Identity.</h2>
-          <p>Approvals, client records, tasks, notes, and AI work logs can now write directly to the backend canister.</p>
+          <p>${e(roleCopy)}</p>
         </div>
         <button type="button" data-action="refresh" class="secondary">Refresh canister state</button>
       </section>
     `;
   }
-  const addCommand = `dfx canister call sovereign_desk_backend add_admin '(principal "${state.principal}")' --network ic`;
   return `
-    <section class="access-panel access-locked" id="access">
+    <section class="access-panel access-locked reveal" id="access">
       <div>
         <span class="pill waiting">Read-only after login</span>
         <h2>You are signed in, but this principal is not an operator yet.</h2>
-        <p>The app keeps showing the live public demo instead of breaking. To unlock writes, add this Internet Identity principal as an admin from the controller identity.</p>
+        <p>The app keeps showing the live public preview instead of breaking. To unlock writes, request operator access. Governance can approve it without granting full admin power.</p>
       </div>
       <div class="principal-box">
         <span>Your Internet Identity principal</span>
         <code>${e(state.principal)}</code>
-      </div>
-      <div class="command-box">
-        <span>Controller command</span>
-        <code>${e(addCommand)}</code>
       </div>
       <div class="button-row">
         <button type="button" data-action="copy-principal">Copy principal</button>
@@ -621,47 +972,284 @@ function renderEmpty() {
   `;
 }
 
+function renderPublicExperience(view) {
+  return `
+    ${renderHero(view)}
+    ${renderProofStrip(view)}
+    ${renderWorkflow(view)}
+    ${renderTrustCenter()}
+    ${renderCreatorSignal()}
+  `;
+}
+
+function renderContextSwitcher(view) {
+  if (!state.operatorAccess && !state.clientPortalAccess) return "";
+  const clients = view?.clients || [];
+  const client = currentClient(view);
+  const projects = view?.projects || [];
+  const scopedProjects = client ? projects.filter((project) => sameId(project.clientId, client.id)) : projects;
+  return `
+    <form class="context-switcher" data-action="switch-context" aria-label="Workspace context">
+      <label>
+        <span>Active client</span>
+        <select name="clientId" data-action="switch-client" ${clients.length ? "" : "disabled"}>
+          ${clients.map((item) => `<option value="${e(idText(item.id))}" ${sameId(item.id, state.activeClientId) ? "selected" : ""}>${e(item.name)}</option>`).join("")}
+        </select>
+      </label>
+      <label>
+        <span>Active project</span>
+        <select name="projectId" data-action="switch-project" ${scopedProjects.length ? "" : "disabled"}>
+          ${scopedProjects.map((item) => `<option value="${e(idText(item.id))}" ${sameId(item.id, state.activeProjectId) ? "selected" : ""}>${e(item.name)}</option>`).join("")}
+        </select>
+      </label>
+      <div>
+        <span>Scope</span>
+        <strong>${e(client?.name || "No client")} · ${e(currentProject(view)?.name || "No project")}</strong>
+      </div>
+    </form>
+  `;
+}
+
+function renderWorkspaceManager(view) {
+  if (!state.operatorAccess && !state.clientPortalAccess) return "";
+  const clients = view?.clients || [];
+  const client = currentClient(view);
+  const projects = view?.projects || [];
+  const scopedProjects = client ? projects.filter((project) => sameId(project.clientId, client.id)) : projects;
+  const approvals = currentApprovals(view);
+  const documents = currentDocuments(view);
+  const audit = (view?.audit || []).slice(-8).reverse();
+  const clientRows = clients.map((item) => `
+    <tr class="${sameId(item.id, state.activeClientId) ? "active-row" : ""}">
+      <td><strong>${e(item.name)}</strong><span>${e(item.contactName)}</span></td>
+      <td>${e(item.contactEmail || "private")}</td>
+      <td>${item.portalPrincipal?.length ? e(shortPrincipal(item.portalPrincipal[0])) : "Not bound"}</td>
+      <td><button type="button" class="tiny" data-action="select-client" data-client-id="${e(idText(item.id))}">Open</button></td>
+    </tr>
+  `).join("");
+  const projectRows = scopedProjects.map((item) => `
+    <tr class="${sameId(item.id, state.activeProjectId) ? "active-row" : ""}">
+      <td><strong>${e(item.name)}</strong><span>${e(item.summary)}</span></td>
+      <td>${statusPill(item.status)}</td>
+      <td>${e(idText(item.id))}</td>
+      <td><button type="button" class="tiny" data-action="select-project" data-project-id="${e(idText(item.id))}">Open</button></td>
+    </tr>
+  `).join("");
+  const approvalRows = approvals.map((item) => `
+    <tr>
+      <td><strong>${e(item.title)}</strong><span>${e(item.body)}</span></td>
+      <td>${statusPill(item.status)}</td>
+      <td>${item.responder?.length ? e(shortPrincipal(item.responder[0])) : "No response"}</td>
+      <td>
+        ${canRespondApproval() && variantName(item.status) === "Pending" ? `
+          <button type="button" class="tiny" data-action="approval-decision" data-approval-id="${e(idText(item.id))}" data-decision="Approved">Approve</button>
+          <button type="button" class="tiny" data-action="approval-decision" data-approval-id="${e(idText(item.id))}" data-decision="Rejected">Reject</button>
+        ` : "Locked"}
+      </td>
+    </tr>
+  `).join("");
+  const documentRows = documents.map((item) => `
+    <tr>
+      <td><strong>${e(item.name)}</strong><span>${e(item.mimeType)}</span></td>
+      <td>${e(natText(item.sizeBytes))} bytes</td>
+      <td><code>${e(item.contentHash)}</code></td>
+      <td>${e(item.encryptedKeyRef)}</td>
+    </tr>
+  `).join("");
+  const auditRows = audit.map((item) => `
+    <tr>
+      <td><strong>${e(auditTitle(item))}</strong><span>${e(item.action)}</span></td>
+      <td>${e(auditTarget(item))}</td>
+      <td>${e(shortPrincipal(item.actorPrincipal))}</td>
+    </tr>
+  `).join("");
+
+  return `
+    <section class="workspace-manager reveal" aria-label="Workspace manager">
+      <div class="module-tabs" aria-label="Workspace modules">
+        <a href="#manager-clients">Clients</a>
+        <a href="#manager-projects">Projects</a>
+        <a href="#manager-approvals">Approvals</a>
+        <a href="#manager-documents">Documents</a>
+        <a href="#manager-audit">Audit</a>
+        <a href="#access">Access</a>
+      </div>
+      <div class="manager-grid">
+        <article id="manager-clients" class="surface manager-panel">
+          <div class="section-heading">
+            <span>Clients</span>
+            <h2>Client rooms</h2>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Client</th><th>Contact</th><th>Portal principal</th><th></th></tr></thead>
+              <tbody>${clientRows || '<tr><td colspan="4">No clients yet.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </article>
+
+        <article id="manager-projects" class="surface manager-panel">
+          <div class="section-heading">
+            <span>Projects</span>
+            <h2>${e(client?.name || "Selected client")}</h2>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Project</th><th>Status</th><th>ID</th><th></th></tr></thead>
+              <tbody>${projectRows || '<tr><td colspan="4">No projects for this client.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </article>
+
+        <article id="manager-approvals" class="surface manager-panel">
+          <div class="section-heading">
+            <span>Approvals</span>
+            <h2>Decision gates</h2>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Approval</th><th>Status</th><th>Responder</th><th>Action</th></tr></thead>
+              <tbody>${approvalRows || '<tr><td colspan="4">No approvals in this project.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </article>
+
+        <article id="manager-documents" class="surface manager-panel">
+          <div class="section-heading">
+            <span>Documents</span>
+            <h2>Certified metadata</h2>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Document</th><th>Size</th><th>Hash</th><th>Key ref</th></tr></thead>
+              <tbody>${documentRows || '<tr><td colspan="4">No document records in this project.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </article>
+
+        <article id="manager-audit" class="surface manager-panel wide">
+          <div class="section-heading">
+            <span>Audit</span>
+            <h2>Recent canister activity</h2>
+          </div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Event</th><th>Target</th><th>Actor</th></tr></thead>
+              <tbody>${auditRows || '<tr><td colspan="3">No audit events yet.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+    </section>
+  `;
+}
+
+function renderAppDashboard(view) {
+  const project = currentProject(view);
+  const client = currentClient(view);
+  const openTasks = currentTasks(view).filter((task) => variantName(task.status) !== "Done").length;
+  const pendingApprovals = currentApprovals(view).filter((approval) => variantName(approval.status) === "Pending").length;
+  const documentCount = currentDocuments(view).length;
+  return `
+    <section id="overview" class="app-dashboard reveal" aria-label="Authenticated app dashboard">
+      <div class="app-dashboard-copy">
+        <span class="pill live">${e(accessLabel())}</span>
+        <h1>${state.operatorAccess ? "Workspace cockpit" : state.clientPortalAccess ? "Client portal" : "Access review"}</h1>
+        <p>
+          ${state.operatorAccess
+            ? "Run active client work: approvals, documents, notes, access, task status, and AI briefs."
+            : state.clientPortalAccess
+              ? "Review your scoped room, append notes, and respond to approval gates."
+              : "You are signed in. Request operator access or send your principal to the workspace owner."}
+        </p>
+      </div>
+      <div class="app-dashboard-actions">
+        <button type="button" data-action="refresh">Refresh state</button>
+        <button type="button" data-action="logout" class="secondary">Logout</button>
+      </div>
+      <dl class="app-session">
+        <div><dt>Principal</dt><dd>${e(shortPrincipal(state.principal))}</dd></div>
+        <div><dt>Client</dt><dd>${e(client?.name || "No client loaded")}</dd></div>
+        <div><dt>Project</dt><dd>${e(project?.name || "No project loaded")}</dd></div>
+        <div><dt>Open Tasks</dt><dd>${e(openTasks)}</dd></div>
+        <div><dt>Approvals</dt><dd>${e(pendingApprovals)} pending</dd></div>
+        <div><dt>Documents</dt><dd>${e(documentCount)} records</dd></div>
+      </dl>
+      ${renderContextSwitcher(view)}
+    </section>
+    ${renderWorkspaceManager(view)}
+    ${state.operatorAccess ? renderOperatorConsole(view) : ""}
+    ${state.clientPortalAccess ? renderPortalDetail(state.portalView) : ""}
+    ${renderAccessPanel()}
+    ${renderWorkflow(view)}
+    ${state.operatorAccess ? renderPortalDetail(state.portalView) : ""}
+    ${renderAgentAndAudit(view)}
+    <section class="app-compliance reveal" aria-label="Compliance proof">
+      <div class="section-heading">
+        <span>Verification</span>
+        <h2>Canister proof and release evidence.</h2>
+      </div>
+      ${renderProofStrip(view, "proof")}
+    </section>
+    ${renderTrustCenter()}
+  `;
+}
+
 function render() {
   const view = state.workspaceView;
+  const isAppMode = state.isAuthenticated;
   app.innerHTML = `
     <a class="skip-link" href="#main">Skip to workspace</a>
-    <div class="app-shell">
+    <div class="app-shell ${isAppMode ? "app-mode" : "public-mode"}">
+      <div class="ambient-frame" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
       <header class="top-nav">
         <a class="wordmark" href="#main" aria-label="SovereignDesk home">
           <span class="canister-mark" aria-hidden="true"></span>
           <strong>SovereignDesk</strong>
+          <em>ICP</em>
         </a>
         <nav aria-label="Primary">
-          <a href="#overview">Proof</a>
-          <a href="#clients">Workspace</a>
-          <a href="#agent">AI</a>
-          <a href="#architecture">Architecture</a>
-          <a href="#trust">Trust</a>
-          ${state.operatorAccess ? '<a href="#operate">Operate</a>' : state.isAuthenticated ? '<a href="#access">Access</a>' : ""}
+          ${isAppMode ? `
+            <a href="#overview">Dashboard</a>
+            ${state.operatorAccess ? '<a href="#operate">Operate</a>' : '<a href="#access">Access</a>'}
+            <a href="#clients">Workroom</a>
+            <a href="#trust">Trust</a>
+          ` : `
+            <a href="#review">Review</a>
+            <a href="#overview">Proof</a>
+            <a href="#clients">Workspace</a>
+            <a href="#trust">Trust</a>
+            <a href="#creator">Creator</a>
+          `}
         </nav>
+        <a class="nav-status" href="https://dashboard.internetcomputer.org/canister/${e(BACKEND_CANISTER_ID)}" target="_blank" rel="noreferrer">
+          <span class="live-dot" aria-hidden="true"></span>
+          Mainnet verified
+        </a>
       </header>
 
       <main id="main">
+        <div class="mobile-action-bar" aria-label="Fast actions">
+          ${isAppMode ? '<a href="#overview">Home</a>' : '<a href="#review">Review</a>'}
+          ${isAppMode ? (state.operatorAccess ? '<a href="#operate">Operate</a>' : '<a href="#access">Access</a>') : '<a href="#overview">Proof</a>'}
+          ${isAppMode ? '<a href="#clients">Workroom</a>' : '<button type="button" data-action="login">Login</button>'}
+        </div>
         ${state.error ? `<div class="message error">${e(state.error)}</div>` : ""}
         ${state.notice ? `<div class="message">${e(state.notice)}</div>` : ""}
         ${state.loading ? `<div class="message working">Working with the canister...</div>` : ""}
-        ${view ? `
-          ${renderHero(view)}
-          ${renderReviewRail()}
-          ${renderAccessPanel()}
-          ${renderProofStrip(view)}
-          ${renderWorkflow(view)}
-          ${renderAgentAndAudit(view)}
-          ${renderCapabilities(view)}
-          ${renderTrustCenter()}
-          ${renderCreatorSignal()}
-          ${renderRoadmap()}
-          ${renderOperatorConsole(view)}
-          ${renderPortalDetail(state.portalView)}
-        ` : renderEmpty()}
+        ${view ? (isAppMode ? renderAppDashboard(view) : renderPublicExperience(view)) : renderEmpty()}
       </main>
     </div>
   `;
+  requestAnimationFrame(() => {
+    document.querySelector(".app-shell")?.classList.add("is-ready");
+    document.querySelectorAll(".reveal").forEach((node, index) => {
+      node.style.setProperty("--reveal-index", String(index));
+      node.classList.add("is-visible");
+    });
+  });
 }
 
 async function withBusy(task) {
@@ -691,36 +1279,51 @@ function humanError(error) {
 }
 
 async function refreshData() {
+  state.roles = [];
+  state.roleGrants = [];
+  state.governanceAccess = false;
   state.operatorAccess = false;
   state.clientPortalAccess = false;
   state.accessMode = state.isAuthenticated ? "signed-readonly" : "public";
 
   if (state.isAuthenticated) {
-    const privateView = await state.actor.get_my_workspace();
-    if (privateView.length) {
-      state.workspaceView = privateView[0];
+    state.roles = await state.actor.get_my_roles();
+    state.governanceAccess = hasRole("Owner") || hasRole("Admin");
+    state.operatorAccess = state.governanceAccess || hasRole("Operator");
+    state.clientPortalAccess = hasRole("Client");
+
+    if (state.operatorAccess) {
+      const privateView = await state.actor.get_my_workspace();
+      state.workspaceView = privateView.length ? privateView[0] : null;
+      normalizeActiveContext(state.workspaceView);
       state.operatorAccess = true;
-      state.accessMode = "operator";
-      state.accessRequests = await state.actor.list_access_requests();
-    } else {
+      state.accessMode = state.governanceAccess ? "governance" : "operator";
+      state.accessRequests = state.governanceAccess ? await state.actor.list_access_requests() : [];
+      state.roleGrants = state.governanceAccess ? await state.actor.list_role_grants() : [];
+    }
+
+    if (!state.workspaceView) {
       const portals = await state.actor.get_my_client_portals();
       if (portals.length) {
         state.portalView = portals[0];
         state.workspaceView = portalToWorkspaceView(portals[0]);
+        normalizeActiveContext(state.workspaceView);
         state.clientPortalAccess = true;
         state.accessMode = "client-portal";
       } else {
         const publicView = await state.actor.get_public_demo();
         state.workspaceView = publicView.length ? publicView[0] : null;
+        normalizeActiveContext(state.workspaceView);
       }
     }
   } else {
     const publicView = await state.actor.get_public_demo();
     state.workspaceView = publicView.length ? publicView[0] : null;
+    normalizeActiveContext(state.workspaceView);
   }
 
-  if (state.operatorAccess && state.workspaceView?.clients?.[0]) {
-    const portal = await state.actor.get_client_portal(state.workspaceView.clients[0].id);
+  if (state.operatorAccess && currentClient(state.workspaceView)) {
+    const portal = await state.actor.get_client_portal(currentClient(state.workspaceView).id);
     state.portalView = portal.length ? portal[0] : null;
   } else if (!state.clientPortalAccess) {
     state.portalView = null;
@@ -759,6 +1362,47 @@ function optionalPrincipal(value) {
   return text ? [Principal.fromText(text)] : [];
 }
 
+function optionalNat(value) {
+  const text = String(value || "").trim();
+  return text ? [BigInt(text)] : [];
+}
+
+function roleVariant(value) {
+  const role = String(value || "Operator");
+  if (role === "Admin") return { Admin: null };
+  if (role === "Client") return { Client: null };
+  if (role === "Reviewer") return { Reviewer: null };
+  return { Operator: null };
+}
+
+function hex(buffer) {
+  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256File(file) {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return hex(digest);
+}
+
+async function copyText(value) {
+  const text = String(value || "");
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "-999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+}
+
 app.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
@@ -767,26 +1411,40 @@ app.addEventListener("click", (event) => {
   if (action === "logout") logout();
   if (action === "refresh") withBusy(refreshData);
   if (action === "copy-principal") withBusy(async () => {
-    await navigator.clipboard.writeText(state.principal);
-    state.notice = "Principal copied. Add it as an admin from the controller identity to unlock operator tools.";
+    await copyText(state.principal);
+    state.notice = "Principal copied. Request operator access or bind it as a client portal principal.";
+  });
+  if (action === "copy-value") withBusy(async () => {
+    await copyText(button.dataset.copyValue || "");
+    state.notice = "Copied to clipboard.";
   });
   if (action === "approve-access-request") withBusy(async () => {
-    if (!state.operatorAccess) throw new Error("caller is not an admin");
+    if (!state.governanceAccess) throw new Error("caller is not a governance principal");
     await state.actor.approve_access_request(nat(button.dataset.requestId));
     await refreshData();
-    state.notice = "Admin access granted to requested principal.";
+    state.notice = "Operator role granted to requested principal.";
   });
   if (action === "reject-access-request") withBusy(async () => {
-    if (!state.operatorAccess) throw new Error("caller is not an admin");
+    if (!state.governanceAccess) throw new Error("caller is not a governance principal");
     await state.actor.reject_access_request(nat(button.dataset.requestId), "Rejected from SovereignDesk operator console.");
     await refreshData();
     state.notice = "Access request rejected and recorded in the audit trail.";
+  });
+  if (action === "revoke-role") withBusy(async () => {
+    if (!state.governanceAccess) throw new Error("caller is not a governance principal");
+    await state.actor.revoke_role(
+      Principal.fromText(button.dataset.principal),
+      roleVariant(button.dataset.role),
+      optionalNat(button.dataset.clientId),
+    );
+    await refreshData();
+    state.notice = "Role revoked and written to the canister audit trail.";
   });
   if (action === "seed") withBusy(async () => {
     if (!state.operatorAccess && state.workspaceView) throw new Error("caller is not an admin");
     state.workspaceView = await state.actor.seed_demo();
     await refreshData();
-    state.notice = "Demo workspace seeded in the backend canister.";
+    state.notice = "Workspace seeded in the backend canister.";
   });
   if (action === "approve" || action === "reject") withBusy(async () => {
     if (!canRespondApproval()) throw new Error("caller is not an admin");
@@ -799,6 +1457,57 @@ app.addEventListener("click", (event) => {
     );
     await refreshData();
     state.notice = "Approval response written to the canister audit trail.";
+  });
+  if (action === "task-status") withBusy(async () => {
+    if (!state.operatorAccess) throw new Error("caller is not an admin");
+    await state.actor.update_task_status(nat(button.dataset.taskId), taskStatusVariant(button.dataset.status));
+    await refreshData();
+    state.notice = "Task status updated and recorded in the audit trail.";
+  });
+  if (action === "select-client") withBusy(async () => {
+    state.activeClientId = button.dataset.clientId || "";
+    state.activeProjectId = "";
+    normalizeActiveContext(state.workspaceView);
+    if (state.operatorAccess && currentClient(state.workspaceView)) {
+      const portal = await state.actor.get_client_portal(currentClient(state.workspaceView).id);
+      state.portalView = portal.length ? portal[0] : null;
+    }
+    state.notice = "Client room opened.";
+  });
+  if (action === "select-project") withBusy(async () => {
+    state.activeProjectId = button.dataset.projectId || "";
+    normalizeActiveContext(state.workspaceView);
+    state.notice = "Project room opened.";
+  });
+  if (action === "approval-decision") withBusy(async () => {
+    if (!canRespondApproval()) throw new Error("caller is not an admin");
+    await state.actor.respond_approval(
+      nat(button.dataset.approvalId),
+      button.dataset.decision === "Approved" ? { Approved: null } : { Rejected: null },
+      button.dataset.decision === "Approved" ? "Approved from SovereignDesk manager." : "Rejected from SovereignDesk manager.",
+    );
+    await refreshData();
+    state.notice = "Approval decision written to the canister audit trail.";
+  });
+});
+
+app.addEventListener("change", (event) => {
+  const control = event.target.closest("[data-action='switch-client'], [data-action='switch-project']");
+  if (!control) return;
+  withBusy(async () => {
+    if (control.dataset.action === "switch-client") {
+      state.activeClientId = control.value;
+      state.activeProjectId = "";
+    }
+    if (control.dataset.action === "switch-project") {
+      state.activeProjectId = control.value;
+    }
+    normalizeActiveContext(state.workspaceView);
+    if (state.operatorAccess && currentClient(state.workspaceView)) {
+      const portal = await state.actor.get_client_portal(currentClient(state.workspaceView).id);
+      state.portalView = portal.length ? portal[0] : null;
+    }
+    state.notice = "Workspace context switched.";
   });
 });
 
@@ -816,9 +1525,30 @@ app.addEventListener("submit", (event) => {
       await refreshData();
       return;
     }
+    if (action === "grant-role") {
+      if (!state.governanceAccess) throw new Error("caller is not a governance principal");
+      await state.actor.grant_role(Principal.fromText(String(data.principal || "")), roleVariant(data.role), optionalNat(data.clientId));
+      state.notice = "Role granted and written to the canister audit trail.";
+      await refreshData();
+      return;
+    }
+    if (action === "rotate-client-principal") {
+      if (!state.governanceAccess) throw new Error("caller is not a governance principal");
+      await state.actor.rotate_client_principal(nat(data.clientId), Principal.fromText(String(data.principal || "")));
+      state.notice = "Client portal principal rotated and role grant recorded.";
+      await refreshData();
+      return;
+    }
+    if (action === "append-note") {
+      if (!state.operatorAccess && !state.clientPortalAccess) throw new Error("project not accessible");
+      await state.actor.append_note(nat(data.projectId), data.body);
+      state.notice = "Note appended to the canister audit trail.";
+      await refreshData();
+      return;
+    }
     if (!state.operatorAccess) throw new Error("caller is not an admin");
     if (action === "ask-agent") {
-      state.agentResponse = await state.actor.ask_agent("project:1", String(data.prompt || "Summarize next steps"));
+      state.agentResponse = await state.actor.ask_agent(`project:${state.activeProjectId || "1"}`, String(data.prompt || "Summarize next steps"));
       state.notice = "AI Employee response written to the backend canister.";
     }
     if (action === "create-client") {
@@ -836,6 +1566,35 @@ app.addEventListener("submit", (event) => {
     if (action === "create-approval") {
       await state.actor.create_approval(nat(data.projectId), data.title, data.body);
       state.notice = "Approval requested.";
+    }
+    if (action === "create-document") {
+      const file = form.elements.file?.files?.[0];
+      if (file) {
+        if (file.size > 2_000_000) {
+          throw new Error("document too large for MVP record limit");
+        }
+        const digest = await sha256File(file);
+        await state.actor.create_document_record(
+          nat(data.projectId),
+          file.name,
+          file.type || "application/octet-stream",
+          BigInt(file.size),
+          data.encryptedKeyRef,
+          `sha256:${digest}`,
+        );
+        state.notice = "File hash computed locally and document record written to the canister.";
+        await refreshData();
+        return;
+      }
+      await state.actor.create_document_record(
+        nat(data.projectId),
+        data.name,
+        data.mimeType,
+        nat(data.sizeBytes),
+        data.encryptedKeyRef,
+        data.contentHash,
+      );
+      state.notice = "Document record written to the canister.";
     }
     await refreshData();
   });

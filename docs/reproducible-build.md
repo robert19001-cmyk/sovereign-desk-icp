@@ -22,6 +22,8 @@ dfx build --network ic
 
 ## Deploy
 
+Maintainer-only. Do not deploy from routine cleanup or QA work without explicit release approval.
+
 ```bash
 DFX_WARNING=-mainnet_plaintext_identity dfx deploy --network ic --yes
 ```
@@ -45,4 +47,4 @@ The application Trust Center shows the canister IDs, controller, module hashes, 
 
 ## Next Controller Step
 
-The current controller is a development identity. Before storing valuable client data or assets, move control to a passphrase-protected or hardware-backed identity. For a public production launch, move toward multisig, Launchtrail, SNS, or another governance model.
+The current controller is a development identity. Before storing valuable client data or assets, move control to a passphrase-protected or hardware-backed identity. For a public production launch, move toward multisig, Launchtrail, SNS, or another governance model. Use [controller-hardening-runbook.md](controller-hardening-runbook.md) for the migration checklist.
