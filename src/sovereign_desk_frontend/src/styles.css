@@ -1606,6 +1606,37 @@ dd {
   line-height: 1.45;
 }
 
+.split-route {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(184, 154, 87, 0.24);
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(135deg, rgba(184, 154, 87, 0.08), rgba(255, 255, 255, 0.72)),
+    #fff;
+}
+
+.split-route span {
+  display: block;
+  color: var(--gold-3);
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.split-route strong {
+  display: block;
+  margin-top: 0.28rem;
+  overflow-wrap: anywhere;
+}
+
+.split-route p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .vault-verifications {
   display: grid;
   gap: 0.5rem;
@@ -2131,6 +2162,12 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.split-timeline {
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
 .architecture, .creator-signal, .trust-center {
   margin-top: 1rem;
 }
@@ -2177,6 +2214,13 @@ dd {
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   background: var(--paper-2);
+}
+
+.trust-grid article.split-card {
+  background:
+    linear-gradient(135deg, rgba(184, 154, 87, 0.1), rgba(255, 255, 255, 0.8)),
+    #fff;
+  border-color: rgba(184, 154, 87, 0.26);
 }
 
 .trust-grid span {

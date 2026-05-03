@@ -1,13 +1,30 @@
 import { Actor, HttpAgent } from "@icp-sdk/core/agent";
 import { Principal } from "@icp-sdk/core/principal";
 import { AuthClient } from "@icp-sdk/auth/client";
-import { idlFactory } from "../../declarations/sovereign_desk_backend/sovereign_desk_backend.did.js";
+import { idlFactory as backendIdlFactory } from "../../declarations/sovereign_desk_backend/sovereign_desk_backend.did.js";
+import { idlFactory as vaultIdlFactory } from "../../declarations/sovereign_desk_vault/sovereign_desk_vault.did.js";
+import { idlFactory as auditIdlFactory } from "../../declarations/sovereign_desk_audit/sovereign_desk_audit.did.js";
+import { idlFactory as agentIdlFactory } from "../../declarations/sovereign_desk_agent/sovereign_desk_agent.did.js";
 import "./styles.css";
 
 const BACKEND_CANISTER_ID = __BACKEND_CANISTER_ID__;
 const DFX_NETWORK = __DFX_NETWORK__;
 const MAINNET_HOST = "https://icp-api.io";
 const FRONTEND_CANISTER_ID = "v7inb-hyaaa-aaaal-qw7aq-cai";
+const SPLIT_CANISTERS = {
+  vault: {
+    id: "venre-5aaaa-aaaal-qw7ca-cai",
+    moduleHash: "0x08769137ce21c7db11212213fe05ed838299034383b0a2ada6a9e31bba20660c",
+  },
+  audit: {
+    id: "vdmxq-qyaaa-aaaal-qw7cq-cai",
+    moduleHash: "0xaa47af5bfc40b6986ce80774eb6e226157e1b8ab827bf0ea5f19d7803b6543ce",
+  },
+  agent: {
+    id: "vkp4m-gqaaa-aaaal-qw7da-cai",
+    moduleHash: "0x1fd09730239dd7ece5d9e7b1da271618429f062904904dcc61b48c3970e5435e",
+  },
+};
 const TRUST = {
   controller: "7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae",
   backendModuleHash: "0xd32ca3c209b2ae9417f2de4f40f3528ed3712070228f23f02a2b7a8d80221fa8",
@@ -25,6 +42,7 @@ const CREATOR = {
 const state = {
   authClient: null,
   actor: null,
+  splitActors: null,
   principal: "anonymous",
   isAuthenticated: false,
   roles: [],
@@ -44,6 +62,8 @@ const state = {
   documentVerifications: {},
   encryptedDocumentObjects: {},
   governanceProposals: [],
+  splitAuditEvents: [],
+  splitAgentBriefs: [],
   agentResponse: null,
   loading: false,
   error: "",
@@ -56,16 +76,34 @@ function isLocal() {
   return DFX_NETWORK !== "ic" && (window.location.hostname.includes("localhost") || window.location.hostname === "127.0.0.1");
 }
 
-async function createBackendActor(identity) {
+async function createAgent(identity) {
   const host = isLocal() ? window.location.origin : MAINNET_HOST;
   const agent = await HttpAgent.create({ host, identity });
   if (isLocal()) {
     await agent.fetchRootKey().catch(() => undefined);
   }
+  return agent;
+}
+
+function createActor(agent, idlFactory, canisterId) {
   return Actor.createActor(idlFactory, {
     agent,
-    canisterId: Principal.fromText(BACKEND_CANISTER_ID),
+    canisterId: Principal.fromText(canisterId),
   });
+}
+
+async function createBackendActor(identity) {
+  const agent = await createAgent(identity);
+  return createActor(agent, backendIdlFactory, BACKEND_CANISTER_ID);
+}
+
+async function createSplitActors(identity) {
+  const agent = await createAgent(identity);
+  return {
+    vault: createActor(agent, vaultIdlFactory, SPLIT_CANISTERS.vault.id),
+    audit: createActor(agent, auditIdlFactory, SPLIT_CANISTERS.audit.id),
+    agent: createActor(agent, agentIdlFactory, SPLIT_CANISTERS.agent.id),
+  };
 }
 
 function e(value) {
@@ -604,6 +642,14 @@ function renderAgentAndAudit(view) {
       <small>${e(auditTarget(event))}</small>
     </li>
   `).join("");
+  const splitAudit = (state.splitAuditEvents || []).slice(-5).reverse().map((event) => `
+    <li>
+      <span>${e(event.action)}</span>
+      <strong>${e(event.summary)}</strong>
+      <small>${e(event.target)} · ${e(shortPrincipal(event.actorPrincipal))}</small>
+    </li>
+  `).join("");
+  const lastBrief = (state.splitAgentBriefs || []).slice(-1)[0];
   const publicBrief = [
     "1. Client portal is available as a public proof surface.",
     "2. Approval decisions require Internet Identity and role checks.",
@@ -614,10 +660,15 @@ function renderAgentAndAudit(view) {
     <section class="section-grid reveal">
       <article id="agent" class="surface agent-surface elevated">
         <div class="section-heading">
-          <span>Operating brief</span>
+          <span>Agent canister</span>
           <h2>Human-approved review summary</h2>
         </div>
-        <p class="agent-copy">${e(state.agentResponse?.answer || publicBrief)}</p>
+        <div class="split-route">
+          <span>Routed to</span>
+          <strong>${e(shortPrincipal(SPLIT_CANISTERS.agent.id))}</strong>
+          <p>${state.splitActors?.agent ? "AI brief drafts are written to the dedicated agent canister." : "Login loads the dedicated agent canister actor."}</p>
+        </div>
+        <p class="agent-copy">${e(state.agentResponse?.answer || lastBrief?.answer || publicBrief)}</p>
         ${state.operatorAccess ? `
           <form class="inline-form" data-action="ask-agent">
             <label>
@@ -636,6 +687,14 @@ function renderAgentAndAudit(view) {
           <span>Audit trail</span>
           <h2>Signed work history</h2>
         </div>
+        ${state.isAuthenticated ? `
+          <div class="split-route">
+            <span>Split audit canister</span>
+            <strong>${e(shortPrincipal(SPLIT_CANISTERS.audit.id))}</strong>
+            <p>Proof events from split flows are appended outside the workspace backend.</p>
+          </div>
+        ` : ""}
+        ${splitAudit ? `<ol class="timeline split-timeline">${splitAudit}</ol>` : ""}
         <ol class="timeline">${audit || "<li><span>No events</span><strong>Seed the workspace</strong><small>audit:empty</small></li>"}</ol>
       </article>
     </section>
@@ -656,10 +715,15 @@ function renderCapabilities(view) {
 
 function renderTrustCenter() {
   const statusCommand = `dfx canister status --network ic ${BACKEND_CANISTER_ID}`;
+  const splitCards = [
+    ["Vault canister", SPLIT_CANISTERS.vault.id, SPLIT_CANISTERS.vault.moduleHash, "Ciphertext objects + vetKeys context"],
+    ["Audit canister", SPLIT_CANISTERS.audit.id, SPLIT_CANISTERS.audit.moduleHash, "Proof events + trust manifest"],
+    ["Agent canister", SPLIT_CANISTERS.agent.id, SPLIT_CANISTERS.agent.moduleHash, "AI brief drafts + human approval"],
+  ];
   const hardening = [
     ["Controller", "Move control rights to a hardware-backed or passphrase-protected ICP identity."],
-    ["Encrypted rooms", "Ciphertext-only vault objects are live; vetKeys-backed key release is the next key-management upgrade."],
-    ["AI service", "Split AI work logs into a dedicated ICP service with explicit human approval."],
+    ["Encrypted rooms", "Ciphertext-only vault objects now write to a dedicated vault canister; vetKeys-backed key release is the next key-management upgrade."],
+    ["AI service", "AI work logs are routed into a dedicated agent canister with explicit human approval."],
   ];
   return `
     <section id="trust" class="trust-center reveal">
@@ -704,6 +768,18 @@ function renderTrustCenter() {
           <code>${e(statusCommand)}</code>
           <button type="button" class="tiny" data-action="copy-value" data-copy-value="${e(statusCommand)}">Copy command</button>
         </article>
+        ${splitCards.map(([label, canisterId, moduleHash, body]) => `
+          <article class="split-card">
+            <span>${e(label)}</span>
+            <strong>${e(canisterId)}</strong>
+            <p>${e(body)}</p>
+            <code>${e(moduleHash)}</code>
+            <div class="trust-actions">
+              <button type="button" class="tiny" data-action="copy-value" data-copy-value="${e(canisterId)}">Copy</button>
+              <a href="https://dashboard.internetcomputer.org/canister/${e(canisterId)}" target="_blank" rel="noreferrer">Open dashboard</a>
+            </div>
+          </article>
+        `).join("")}
         <article>
           <span>Source remote</span>
           <code>${e(TRUST.source)}</code>
@@ -1098,6 +1174,11 @@ function renderDocumentVaultTools(document) {
         <span>Document Vault v2</span>
         <strong>${e(document.name)}</strong>
         <p>Client-side encryption, vetKeys-ready derivation context, version records, hash verification, and audit events.</p>
+        <div class="split-route">
+          <span>Encrypted object route</span>
+          <strong>${e(shortPrincipal(SPLIT_CANISTERS.vault.id))}</strong>
+          <p>New ciphertext writes go to the dedicated vault canister; legacy backend vault records remain readable.</p>
+        </div>
       </div>
       <form class="compact-form" data-action="add-document-version">
         <input type="hidden" name="documentId" value="${e(idText(document.id))}" />
@@ -1490,6 +1571,8 @@ async function refreshData() {
   state.documentVerifications = {};
   state.encryptedDocumentObjects = {};
   state.governanceProposals = [];
+  state.splitAuditEvents = [];
+  state.splitAgentBriefs = [];
   state.governanceAccess = false;
   state.operatorAccess = false;
   state.clientPortalAccess = false;
@@ -1541,6 +1624,7 @@ async function refreshData() {
     state.portalView = null;
   }
   await refreshVaultForCurrentDocuments().catch(() => undefined);
+  await refreshSplitCanisterState().catch(() => undefined);
 }
 
 async function refreshVaultForCurrentDocuments() {
@@ -1550,19 +1634,36 @@ async function refreshVaultForCurrentDocuments() {
     const documentId = idText(doc.id);
     state.documentVersions[documentId] = await state.actor.list_document_versions(doc.id).catch(() => []);
     state.documentVerifications[documentId] = await state.actor.list_document_verifications(doc.id).catch(() => []);
-    state.encryptedDocumentObjects[documentId] = await state.actor.list_encrypted_document_objects(doc.id).catch(() => []);
+    const workspaceId = state.workspaceView?.workspace?.id ?? 1n;
+    const splitObjects = state.splitActors?.vault
+      ? await state.splitActors.vault.list_objects(workspaceId, doc.id).catch(() => [])
+      : [];
+    const legacyObjects = await state.actor.list_encrypted_document_objects(doc.id).catch(() => []);
+    state.encryptedDocumentObjects[documentId] = [...splitObjects, ...legacyObjects];
   }
+}
+
+async function refreshSplitCanisterState() {
+  if (!state.isAuthenticated || !state.splitActors) return;
+  state.splitAuditEvents = await state.splitActors.audit.list_events(0n, 10n).catch(() => []);
+  state.splitAgentBriefs = await state.splitActors.agent.list_briefs(0n, 10n).catch(() => []);
 }
 
 async function login() {
   await withBusy(async () => {
     const identity = await state.authClient.signIn({
       maxTimeToLive: BigInt(8) * BigInt(3_600_000_000_000),
-      targets: [Principal.fromText(BACKEND_CANISTER_ID)],
+      targets: [
+        Principal.fromText(BACKEND_CANISTER_ID),
+        Principal.fromText(SPLIT_CANISTERS.vault.id),
+        Principal.fromText(SPLIT_CANISTERS.audit.id),
+        Principal.fromText(SPLIT_CANISTERS.agent.id),
+      ],
     });
     state.principal = identity.getPrincipal().toText();
     state.isAuthenticated = true;
     state.actor = await createBackendActor(identity);
+    state.splitActors = await createSplitActors(identity);
     await refreshData();
     state.notice = "Authenticated with Internet Identity.";
   });
@@ -1798,14 +1899,24 @@ app.addEventListener("click", (event) => {
     const documentId = nat(button.dataset.documentId);
     state.documentVersions[idText(documentId)] = await state.actor.list_document_versions(documentId);
     state.documentVerifications[idText(documentId)] = await state.actor.list_document_verifications(documentId);
-    state.encryptedDocumentObjects[idText(documentId)] = await state.actor.list_encrypted_document_objects(documentId);
+    const workspaceId = state.workspaceView?.workspace?.id ?? 1n;
+    const splitObjects = state.splitActors?.vault
+      ? await state.splitActors.vault.list_objects(workspaceId, documentId).catch(() => [])
+      : [];
+    const legacyObjects = await state.actor.list_encrypted_document_objects(documentId).catch(() => []);
+    state.encryptedDocumentObjects[idText(documentId)] = [...splitObjects, ...legacyObjects];
     state.notice = "Document vault evidence refreshed.";
   });
   if (action === "download-encrypted-object") withBusy(async () => {
-    const object = await state.actor.get_encrypted_document_object(nat(button.dataset.objectId));
+    const splitObject = state.splitActors?.vault
+      ? await state.splitActors.vault.get_object(nat(button.dataset.objectId)).catch(() => [])
+      : [];
+    const object = splitObject.length ? splitObject : await state.actor.get_encrypted_document_object(nat(button.dataset.objectId));
     if (!object.length) throw new Error("encrypted object not found");
     downloadBytes(`sovereign-desk-encrypted-${idText(button.dataset.objectId)}.bin`, new Uint8Array(object[0].ciphertext));
-    state.notice = "Encrypted ciphertext downloaded. Decryption key never leaves the browser/passphrase flow.";
+    state.notice = splitObject.length
+      ? "Encrypted ciphertext downloaded from the dedicated vault canister."
+      : "Encrypted ciphertext downloaded from the legacy backend vault. Decryption key never leaves the browser/passphrase flow.";
   });
   if (action === "review-governance-proposal") withBusy(async () => {
     if (!state.governanceAccess) throw new Error("caller is not a governance principal");
@@ -1909,8 +2020,15 @@ app.addEventListener("submit", (event) => {
     }
     if (!state.operatorAccess) throw new Error("caller is not an admin");
     if (action === "ask-agent") {
-      state.agentResponse = await state.actor.ask_agent(`project:${state.activeProjectId || "1"}`, String(data.prompt || "Summarize next steps"));
-      state.notice = "AI Employee response written to the backend canister.";
+      const scope = `project:${state.activeProjectId || "1"}`;
+      if (state.splitActors?.agent) {
+        state.agentResponse = await state.splitActors.agent.draft_brief(scope, String(data.prompt || "Summarize next steps"));
+        await state.splitActors.audit.append_event("agent.brief.drafted", scope, "AI brief drafted in the dedicated agent canister.").catch(() => undefined);
+        state.notice = "AI brief written to the dedicated agent canister and proof event appended to audit.";
+      } else {
+        state.agentResponse = await state.actor.ask_agent(scope, String(data.prompt || "Summarize next steps"));
+        state.notice = "AI Employee response written to the backend canister.";
+      }
     }
     if (action === "create-client") {
       await state.actor.create_client(data.name, data.contactName, data.contactEmail, optionalPrincipal(data.portalPrincipal));
@@ -1986,18 +2104,36 @@ app.addEventListener("submit", (event) => {
       const file = form.elements.file?.files?.[0];
       if (!file) throw new Error("encrypted file is required");
       const documentId = nat(data.documentId);
-      const context = await state.actor.get_vetkey_derivation_context(documentId, Principal.fromText(state.principal));
+      const workspaceId = state.workspaceView?.workspace?.id ?? 1n;
+      const context = state.splitActors?.vault
+        ? await state.splitActors.vault.get_vetkey_derivation_context(workspaceId, documentId, Principal.fromText(state.principal))
+        : await state.actor.get_vetkey_derivation_context(documentId, Principal.fromText(state.principal));
       const encrypted = await encryptVaultFile(file, String(data.passphrase || ""), context);
-      await state.actor.store_encrypted_document_object(
-        documentId,
-        optionalNat(data.versionId),
-        "AES-GCM-256/PBKDF2-SHA256/vetkeys-ready",
-        context,
-        encrypted.iv,
-        encrypted.ciphertext,
-        encrypted.ciphertextHash,
-      );
-      state.notice = "Encrypted ciphertext stored on the canister. The plaintext file and passphrase were not sent.";
+      if (state.splitActors?.vault) {
+        await state.splitActors.vault.store_object(
+          workspaceId,
+          documentId,
+          optionalNat(data.versionId),
+          "AES-GCM-256/PBKDF2-SHA256/vetkeys-ready",
+          context,
+          encrypted.iv,
+          encrypted.ciphertext,
+          encrypted.ciphertextHash,
+        );
+        await state.splitActors.audit.append_event("vault.object.stored", `document:${idText(documentId)}`, "Encrypted object stored in the dedicated vault canister.").catch(() => undefined);
+        state.notice = "Encrypted ciphertext stored in the dedicated vault canister. Plaintext and passphrase were not sent.";
+      } else {
+        await state.actor.store_encrypted_document_object(
+          documentId,
+          optionalNat(data.versionId),
+          "AES-GCM-256/PBKDF2-SHA256/vetkeys-ready",
+          context,
+          encrypted.iv,
+          encrypted.ciphertext,
+          encrypted.ciphertextHash,
+        );
+        state.notice = "Encrypted ciphertext stored on the backend canister. The plaintext file and passphrase were not sent.";
+      }
     }
     await refreshData();
   });
@@ -2012,6 +2148,7 @@ async function init() {
   state.principal = identity.getPrincipal().toText();
   state.isAuthenticated = state.authClient.isAuthenticated();
   state.actor = await createBackendActor(identity);
+  state.splitActors = await createSplitActors(identity);
   await refreshData().catch((error) => {
     state.error = humanError(error);
   });

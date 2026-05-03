@@ -116,6 +116,7 @@ Current mainnet MVP hardening includes:
 - Document Vault v2 with document versions, archive records, and client-side SHA-256 verification evidence;
 - encrypted vault objects: browser-side AES-GCM encryption, ciphertext-only canister storage, and vetKeys-ready derivation context;
 - split vault, audit, and agent canisters deployed on mainnet with the protected controller;
+- live frontend routing for new encrypted vault writes, AI brief drafts, and proof events into the split canisters;
 - governance proposal ledger for multisig/SNS/Launchtrail migration decisions;
 - update endpoints for client, project, task, document metadata, and notes;
 - approval final-state protection and backend-side document hash validation;
@@ -257,7 +258,7 @@ The backend exposes:
 
 - Move controller governance from protected single identity to multisig, SNS, Launchtrail, or equivalent.
 - Add request status lifecycle UX: pending, approved, rejected, archived.
-- Route frontend/backend workflows to the deployed split vault, audit/proof, and agent canisters.
+- Add typed backend cross-canister wrappers for the deployed split vault, audit/proof, and agent services.
 - Replace passphrase-derived vault demo keys with vetKeys-backed key release.
 - Add proper file upload and certified document retrieval.
 - Add automated E2E tests for authenticated Internet Identity flows.

@@ -52,6 +52,9 @@ checks.push(assert("frontend asset reference", Boolean(assetPath)));
 
 const js = curl(new URL(assetPath, frontendUrl).toString());
 checks.push(assert("frontend points at backend", js.includes(backendId)));
+checks.push(assert("frontend points at vault split canister", js.includes(splitCanisters[0][2])));
+checks.push(assert("frontend points at audit split canister", js.includes(splitCanisters[1][2])));
+checks.push(assert("frontend points at agent split canister", js.includes(splitCanisters[2][2])));
 checks.push(assert("frontend uses mainnet network", js.includes("`ic`") || js.includes("\"ic\"")));
 
 const publicDemo = dfxOwner(["canister", "call", "sovereign_desk_backend", "get_public_demo", "--network", "ic"]);
@@ -103,5 +106,12 @@ for (const [label, name, canisterId, moduleHash] of splitCanisters) {
   checks.push(assert(`${label} module hash`, status.includes(moduleHash)));
   checks.push(assert(`${label} protected controller`, status.includes(protectedController) && !status.includes("up6xy-uol7y")));
 }
+
+const auditManifest = dfxOwner(["canister", "call", "sovereign_desk_audit", "get_trust_manifest", "--network", "ic"]);
+checks.push(assert("audit manifest published", auditManifest.includes("v0.6.2-split-routing")));
+checks.push(assert("audit manifest backend hash", auditManifest.includes(`0x${expectedBackendHash}`)));
+
+const auditEvents = dfxOwner(["canister", "call", "sovereign_desk_audit", "list_events", "(0, 10)", "--network", "ic"]);
+checks.push(assert("split routing audit event present", auditEvents.includes("release.split.routing")));
 
 console.log(JSON.stringify({ checks, count: checks.length }, null, 2));

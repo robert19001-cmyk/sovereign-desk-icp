@@ -1,6 +1,10 @@
 # Canister Split Status
 
-The mainnet MVP still routes the primary product workflow through `sovereign_desk_backend`, but the production split canister shells are now deployed, installed, controller-hardened, and smoke-tested on ICP mainnet.
+The mainnet MVP still keeps core workspace records in `sovereign_desk_backend`, but split canister routing is now active from the live frontend:
+
+- encrypted object writes/readbacks use `sovereign_desk_vault`;
+- AI brief drafts use `sovereign_desk_agent`;
+- split-flow proof events use `sovereign_desk_audit`.
 
 ## Current Mainnet Canisters
 
@@ -51,14 +55,15 @@ dfx --identity codex-icp canister call sovereign_desk_audit append_event '("rele
 dfx --identity codex-icp canister call sovereign_desk_agent draft_brief '("project:1", "Summarize mainnet split deployment")' --network ic
 ```
 
+The live frontend bundle is also validated by `npm run qa:product`, which checks that it points at the backend plus all three split canisters.
+
 ## Migration Order
 
-1. Publish Trust Manifest through `sovereign_desk_audit`.
-2. Move new encrypted objects from backend storage to `sovereign_desk_vault`.
-3. Keep old backend vault records read-only during migration.
-4. Route `ask_agent` through `sovereign_desk_agent`.
-5. Update frontend Trust Center with split canister status cards.
-6. Run mainnet QA and release a new manifest.
+1. Move server-side backend calls for vault/audit/agent into typed cross-canister service wrappers.
+2. Keep old backend vault records read-only during migration.
+3. Add certified responses for the audit Trust Center.
+4. Replace passphrase-derived demo keys with vetKeys key release.
+5. Add authenticated E2E tests for split canister writes.
 
 ## Exit Criteria
 

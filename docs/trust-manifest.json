@@ -1,6 +1,6 @@
 {
   "appName": "SovereignDesk AI",
-  "release": "v0.6.1",
+  "release": "v0.6.2",
   "network": "ic",
   "frontendCanister": "v7inb-hyaaa-aaaal-qw7aq-cai",
   "backendCanister": "vyjlv-kaaaa-aaaal-qw7aa-cai",
@@ -17,11 +17,12 @@
   "liveUrl": "https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/",
   "candidUrl": "https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=vyjlv-kaaaa-aaaal-qw7aa-cai",
   "source": "https://github.com/robert19001-cmyk/sovereign-desk-icp",
-  "releaseUrl": "https://github.com/robert19001-cmyk/sovereign-desk-icp/releases/tag/v0.6.1",
+  "releaseUrl": "https://github.com/robert19001-cmyk/sovereign-desk-icp/releases/tag/v0.6.2",
   "proofs": [
     "GitHub Actions CI is green on main",
     "npm run qa:product validates canister IDs, module hashes, schema version, and controller",
     "npm run qa:mainnet validates public redaction and responsive render",
-    "Split vault, audit, and agent canisters are deployed, controller-hardened, and smoke-tested on mainnet"
+    "Split vault, audit, and agent canisters are deployed, controller-hardened, smoke-tested, and routed from the live frontend",
+    "Audit canister publishes the v0.6.2 split-routing trust manifest"
   ]
 }
