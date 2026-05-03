@@ -38,7 +38,7 @@ Maintainer-only mainnet validation:
 
 Latest deployed hardening:
 
-- Backend module hash: `0xa7d5a990620fcf61baa358abd574acf7563ba81b12f5fec5f7ffa7479e4554ed`
+- Backend module hash: `0xfbe8b58e01a44a92eefd85b016a4687c1940cdba334083ff34bce91b9d260784`
 - Production bootstrap now requires the configured bootstrap owner.
 - `seed_demo` requires admin when a workspace already exists.
 - Approval responses cannot use `Pending` as a decision.
@@ -112,7 +112,7 @@ Recently reduced risks:
 ## P1 Beta Product Work
 
 1. Access and onboarding
-   - Client invite by Internet Identity principal.
+   - Client invite by Internet Identity principal is live in v3; next hardening step is expiry and notification.
    - Client principal rotation.
    - Operator role approval from owner/admin.
    - Access request history visible in operator UI.
@@ -262,7 +262,7 @@ Outcome: it feels like a working product, not a showcase.
 
 - Add project activity timeline that joins tasks, approvals, notes, and document records.
 - Add clear empty/loading/error states for every panel.
-- Add invite flow for clients and operators.
+- Harden invite flow with expiry, resend, and notification hooks.
 - Add filtered views by client/project/status.
 - Add exportable audit report.
 

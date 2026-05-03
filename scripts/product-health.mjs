@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 const frontendUrl = "https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/";
 const frontendId = "v7inb-hyaaa-aaaal-qw7aq-cai";
 const backendId = "vyjlv-kaaaa-aaaal-qw7aa-cai";
-const expectedBackendHash = "a7d5a990620fcf61baa358abd574acf7563ba81b12f5fec5f7ffa7479e4554ed";
+const expectedBackendHash = "fbe8b58e01a44a92eefd85b016a4687c1940cdba334083ff34bce91b9d260784";
 const expectedFrontendHash = "04e565b3425fe7510ee16b02adcfe3f01abc9a2725c82a21cb08969241debd62";
 
 function run(command, args, options = {}) {
@@ -68,7 +68,7 @@ const roleGrants = dfx(["canister", "call", "sovereign_desk_backend", "list_role
 checks.push(assert("role grant list available", roleGrants.includes("vec")));
 
 const systemInfo = dfx(["canister", "call", "sovereign_desk_backend", "get_system_info", "--network", "ic"]);
-checks.push(assert("schema version current", systemInfo.includes("schemaVersion = 2")));
+checks.push(assert("schema version current", systemInfo.includes("schemaVersion = 3")));
 checks.push(assert("system counts available", systemInfo.includes("roleGrants =")));
 
 const backendStatus = dfx(["canister", "status", "sovereign_desk_backend", "--network", "ic"]);

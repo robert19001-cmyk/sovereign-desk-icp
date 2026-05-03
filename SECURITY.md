@@ -13,7 +13,7 @@ SovereignDesk AI is an ICP mainnet MVP. It is designed to demonstrate a canister
 - Role grants can be listed, granted, revoked, and client portal principals can be rotated by governance.
 - Approval decisions cannot be returned to Pending or overwritten after final state.
 - New document records require backend-side `sha256:<64 hex>` validation.
-- Upgrade safety exposes `schemaVersion = 2` and owner-only state snapshot export.
+- Upgrade safety exposes `schemaVersion = 3` and owner-only state snapshot export.
 - Asset headers include a tightened CSP and Permissions-Policy.
 - Frontend rendering escapes canister-provided strings.
 - The app uses a custom product mark and is not affiliated with or endorsed by DFINITY Foundation.

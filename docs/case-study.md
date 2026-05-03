@@ -39,7 +39,7 @@ The next product milestone is not another landing page. It is a controlled workf
 1. Move controller rights to a hardware-backed or passphrase-protected identity.
 2. Add owner onboarding for the real Internet Identity principal.
 3. Add access request status lifecycle and notifications.
-4. Add client invite and portal-principal assignment UI.
+4. Harden client invite and portal-principal assignment with expiry and notification hooks.
 5. Add certified document upload metadata and encrypted key handling.
 6. Split the AI Employee into a dedicated canister with explicit human approval.
 7. Add ckBTC/ckUSDC invoice approvals after the client workflow is stable.

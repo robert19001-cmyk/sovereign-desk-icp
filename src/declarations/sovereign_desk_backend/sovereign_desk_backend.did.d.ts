@@ -52,6 +52,17 @@ export interface Client {
   'createdAt' : bigint,
   'contactEmail' : string,
 }
+export interface ClientInvite {
+  'id' : bigint,
+  'clientId' : bigint,
+  'code' : string,
+  'note' : string,
+  'createdAt' : bigint,
+  'createdBy' : Principal,
+  'claimedAt' : [] | [bigint],
+  'claimedBy' : [] | [Principal],
+  'revokedAt' : [] | [bigint],
+}
 export interface ClientPortalView {
   'client' : Client,
   'tasks' : Array<Task>,
@@ -159,6 +170,7 @@ export interface RoleGrant {
 }
 export interface StateCounts {
   'tasks' : bigint,
+  'clientInvites' : bigint,
   'documents' : bigint,
   'audit' : bigint,
   'projects' : bigint,
@@ -170,6 +182,7 @@ export interface StateCounts {
 }
 export interface StateSnapshot {
   'tasks' : Array<Task>,
+  'clientInvites' : Array<ClientInvite>,
   'nextDocumentId' : bigint,
   'documents' : Array<DocumentRecord>,
   'nextAccessRequestId' : bigint,
@@ -192,6 +205,7 @@ export interface StateSnapshot {
   'nextNoteId' : bigint,
   'roleGrants' : Array<RoleGrant>,
   'approvals' : Array<Approval>,
+  'nextClientInviteId' : bigint,
   'clients' : Array<Client>,
 }
 export interface SystemInfo {
@@ -234,11 +248,13 @@ export interface _SERVICE {
   'append_note' : ActorMethod<[bigint, string], Note>,
   'approve_access_request' : ActorMethod<[bigint], Array<Principal>>,
   'ask_agent' : ActorMethod<[string, string], AgentResponse>,
+  'claim_client_invite' : ActorMethod<[bigint, string], ClientPortalView>,
   'create_approval' : ActorMethod<[bigint, string, string], Approval>,
   'create_client' : ActorMethod<
     [string, string, string, [] | [Principal]],
     Client
   >,
+  'create_client_invite' : ActorMethod<[bigint, string, string], ClientInvite>,
   'create_document_record' : ActorMethod<
     [bigint, string, string, bigint, string, string],
     DocumentRecord
@@ -260,17 +276,31 @@ export interface _SERVICE {
   'list_access_request_history' : ActorMethod<[], Array<AccessRequestReview>>,
   'list_access_requests' : ActorMethod<[], Array<AccessRequest>>,
   'list_audit' : ActorMethod<[bigint, bigint], Array<AuditEvent>>,
+  'list_client_invites' : ActorMethod<[], Array<ClientInvite>>,
   'list_role_grants' : ActorMethod<[], Array<RoleGrant>>,
+  'migrate_schema_version' : ActorMethod<[], bigint>,
   'reject_access_request' : ActorMethod<[bigint, string], AccessRequest>,
   'request_operator_access' : ActorMethod<[string, string], AccessRequest>,
   'respond_approval' : ActorMethod<[bigint, ApprovalStatus, string], Approval>,
+  'revoke_client_invite' : ActorMethod<[bigint], ClientInvite>,
   'revoke_role' : ActorMethod<
     [Principal, Role, [] | [bigint]],
     Array<RoleGrant>
   >,
   'rotate_client_principal' : ActorMethod<[bigint, Principal], Client>,
   'seed_demo' : ActorMethod<[], WorkspaceView>,
+  'update_client' : ActorMethod<[bigint, string, string, string], Client>,
+  'update_document_record' : ActorMethod<
+    [bigint, string, string, string, string],
+    DocumentRecord
+  >,
+  'update_note' : ActorMethod<[bigint, string], Note>,
+  'update_project' : ActorMethod<
+    [bigint, string, string, ProjectStatus],
+    Project
+  >,
   'update_project_status' : ActorMethod<[bigint, ProjectStatus], Project>,
+  'update_task' : ActorMethod<[bigint, string, string, TaskStatus], Task>,
   'update_task_status' : ActorMethod<[bigint, TaskStatus], Task>,
 }
 export declare const idlFactory: IDL.InterfaceFactory;

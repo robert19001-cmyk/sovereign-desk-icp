@@ -10,7 +10,7 @@ const MAINNET_HOST = "https://icp-api.io";
 const FRONTEND_CANISTER_ID = "v7inb-hyaaa-aaaal-qw7aq-cai";
 const TRUST = {
   controller: "up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe",
-  backendModuleHash: "0xa7d5a990620fcf61baa358abd574acf7563ba81b12f5fec5f7ffa7479e4554ed",
+  backendModuleHash: "0xfbe8b58e01a44a92eefd85b016a4687c1940cdba334083ff34bce91b9d260784",
   frontendModuleHash: "0x04e565b3425fe7510ee16b02adcfe3f01abc9a2725c82a21cb08969241debd62",
   governance: "Single developer controller; next step is hardware-backed identity, multisig, or SNS.",
   source: "git@github.com:robert19001-cmyk/sovereign-desk-icp.git",
@@ -37,6 +37,7 @@ const state = {
   activeClientId: "",
   activeProjectId: "",
   accessRequests: [],
+  clientInvites: [],
   roleGrants: [],
   agentResponse: null,
   loading: false,
@@ -957,6 +958,11 @@ function renderAccessPanel() {
         <label><span>Request note</span><textarea name="note" maxlength="500" required>Please review this Internet Identity principal for SovereignDesk operator access.</textarea></label>
         <button type="submit">Request access on-chain</button>
       </form>
+      <form class="request-access-form" data-action="claim-client-invite">
+        <label><span>Client ID</span><input name="clientId" placeholder="1" inputmode="numeric" required /></label>
+        <label><span>Invite code</span><input name="code" placeholder="Paste invite code" maxlength="80" required /></label>
+        <button type="submit">Claim client portal</button>
+      </form>
     </section>
   `;
 }
@@ -1019,6 +1025,17 @@ function renderWorkspaceManager(view) {
   const approvals = currentApprovals(view);
   const documents = currentDocuments(view);
   const audit = (view?.audit || []).slice(-8).reverse();
+  const inviteRows = (state.clientInvites || []).filter((invite) => !client || sameId(invite.clientId, client.id)).map((invite) => {
+    const claimed = invite.claimedBy?.length ? `Claimed by ${shortPrincipal(invite.claimedBy[0])}` : invite.revokedAt?.length ? "Revoked" : "Open";
+    return `
+      <tr>
+        <td><strong>Client ${e(idText(invite.clientId))}</strong><span>${e(invite.note)}</span></td>
+        <td><code>${e(invite.code)}</code></td>
+        <td>${e(claimed)}</td>
+        <td>${!invite.claimedBy?.length && !invite.revokedAt?.length ? `<button type="button" class="tiny" data-action="revoke-client-invite" data-invite-id="${e(idText(invite.id))}">Revoke</button>` : "Closed"}</td>
+      </tr>
+    `;
+  }).join("");
   const clientRows = clients.map((item) => `
     <tr class="${sameId(item.id, state.activeClientId) ? "active-row" : ""}">
       <td><strong>${e(item.name)}</strong><span>${e(item.contactName)}</span></td>
@@ -1072,7 +1089,7 @@ function renderWorkspaceManager(view) {
         <a href="#manager-approvals">Approvals</a>
         <a href="#manager-documents">Documents</a>
         <a href="#manager-audit">Audit</a>
-        <a href="#access">Access</a>
+        <a href="#manager-invites">Invites</a>
       </div>
       <div class="manager-grid">
         <article id="manager-clients" class="surface manager-panel">
@@ -1136,6 +1153,27 @@ function renderWorkspaceManager(view) {
             <table class="data-table">
               <thead><tr><th>Event</th><th>Target</th><th>Actor</th></tr></thead>
               <tbody>${auditRows || '<tr><td colspan="3">No audit events yet.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </article>
+
+        <article id="manager-invites" class="surface manager-panel wide">
+          <div class="section-heading">
+            <span>Client invites</span>
+            <h2>Portal onboarding</h2>
+          </div>
+          ${state.operatorAccess ? `
+            <form class="inline-form invite-form" data-action="create-client-invite">
+              <input type="hidden" name="clientId" value="${e(client?.id ?? 1)}" />
+              <label><span>Invite code</span><input name="code" value="client-${e(client?.id ?? 1)}-${Date.now().toString(36)}" maxlength="80" required /></label>
+              <label><span>Note</span><input name="note" value="Portal invite for ${e(client?.name || "selected client")}" maxlength="240" required /></label>
+              <button type="submit">Create invite</button>
+            </form>
+          ` : ""}
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Client</th><th>Code</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody>${inviteRows || '<tr><td colspan="4">No invites for this client.</td></tr>'}</tbody>
             </table>
           </div>
         </article>
@@ -1281,6 +1319,7 @@ function humanError(error) {
 async function refreshData() {
   state.roles = [];
   state.roleGrants = [];
+  state.clientInvites = [];
   state.governanceAccess = false;
   state.operatorAccess = false;
   state.clientPortalAccess = false;
@@ -1300,6 +1339,7 @@ async function refreshData() {
       state.accessMode = state.governanceAccess ? "governance" : "operator";
       state.accessRequests = state.governanceAccess ? await state.actor.list_access_requests() : [];
       state.roleGrants = state.governanceAccess ? await state.actor.list_role_grants() : [];
+      state.clientInvites = await state.actor.list_client_invites().catch(() => []);
     }
 
     if (!state.workspaceView) {
@@ -1489,6 +1529,12 @@ app.addEventListener("click", (event) => {
     await refreshData();
     state.notice = "Approval decision written to the canister audit trail.";
   });
+  if (action === "revoke-client-invite") withBusy(async () => {
+    if (!state.operatorAccess) throw new Error("caller is not an admin");
+    await state.actor.revoke_client_invite(nat(button.dataset.inviteId));
+    await refreshData();
+    state.notice = "Client invite revoked.";
+  });
 });
 
 app.addEventListener("change", (event) => {
@@ -1522,6 +1568,22 @@ app.addEventListener("submit", (event) => {
     if (action === "request-access") {
       await state.actor.request_operator_access(String(data.email || ""), String(data.note || ""));
       state.notice = "Access request written to the backend canister. The operator can review it in the on-chain queue.";
+      await refreshData();
+      return;
+    }
+    if (action === "claim-client-invite") {
+      state.portalView = await state.actor.claim_client_invite(nat(data.clientId), String(data.code || ""));
+      state.workspaceView = portalToWorkspaceView(state.portalView);
+      normalizeActiveContext(state.workspaceView);
+      state.clientPortalAccess = true;
+      state.notice = "Client portal claimed for this Internet Identity.";
+      await refreshData();
+      return;
+    }
+    if (action === "create-client-invite") {
+      if (!state.operatorAccess) throw new Error("caller is not an admin");
+      await state.actor.create_client_invite(nat(data.clientId), String(data.code || ""), String(data.note || ""));
+      state.notice = "Client invite created. Share the client ID and code with the client.";
       await refreshData();
       return;
     }

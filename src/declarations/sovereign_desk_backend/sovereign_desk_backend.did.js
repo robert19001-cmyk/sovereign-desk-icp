@@ -12,22 +12,6 @@ export const idlFactory = ({ IDL }) => {
     'answer' : IDL.Text,
     'scope' : IDL.Text,
   });
-  const ApprovalStatus = IDL.Variant({
-    'Approved' : IDL.Null,
-    'Rejected' : IDL.Null,
-    'Pending' : IDL.Null,
-  });
-  const Approval = IDL.Record({
-    'id' : IDL.Nat,
-    'status' : ApprovalStatus,
-    'title' : IDL.Text,
-    'responder' : IDL.Opt(IDL.Principal),
-    'body' : IDL.Text,
-    'createdAt' : IDL.Int,
-    'responseComment' : IDL.Text,
-    'projectId' : IDL.Nat,
-    'respondedAt' : IDL.Opt(IDL.Int),
-  });
   const Client = IDL.Record({
     'id' : IDL.Nat,
     'portalPrincipal' : IDL.Opt(IDL.Principal),
@@ -35,6 +19,19 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'createdAt' : IDL.Int,
     'contactEmail' : IDL.Text,
+  });
+  const TaskStatus = IDL.Variant({
+    'Done' : IDL.Null,
+    'Open' : IDL.Null,
+    'InProgress' : IDL.Null,
+  });
+  const Task = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : TaskStatus,
+    'assignee' : IDL.Text,
+    'title' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'projectId' : IDL.Nat,
   });
   const DocumentRecord = IDL.Record({
     'id' : IDL.Nat,
@@ -60,18 +57,40 @@ export const idlFactory = ({ IDL }) => {
     'createdAt' : IDL.Int,
     'summary' : IDL.Text,
   });
-  const TaskStatus = IDL.Variant({
-    'Done' : IDL.Null,
-    'Open' : IDL.Null,
-    'InProgress' : IDL.Null,
+  const ApprovalStatus = IDL.Variant({
+    'Approved' : IDL.Null,
+    'Rejected' : IDL.Null,
+    'Pending' : IDL.Null,
   });
-  const Task = IDL.Record({
+  const Approval = IDL.Record({
     'id' : IDL.Nat,
-    'status' : TaskStatus,
-    'assignee' : IDL.Text,
+    'status' : ApprovalStatus,
     'title' : IDL.Text,
+    'responder' : IDL.Opt(IDL.Principal),
+    'body' : IDL.Text,
     'createdAt' : IDL.Int,
+    'responseComment' : IDL.Text,
     'projectId' : IDL.Nat,
+    'respondedAt' : IDL.Opt(IDL.Int),
+  });
+  const ClientPortalView = IDL.Record({
+    'client' : Client,
+    'tasks' : IDL.Vec(Task),
+    'documents' : IDL.Vec(DocumentRecord),
+    'projects' : IDL.Vec(Project),
+    'notes' : IDL.Vec(Note),
+    'approvals' : IDL.Vec(Approval),
+  });
+  const ClientInvite = IDL.Record({
+    'id' : IDL.Nat,
+    'clientId' : IDL.Nat,
+    'code' : IDL.Text,
+    'note' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'createdBy' : IDL.Principal,
+    'claimedAt' : IDL.Opt(IDL.Int),
+    'claimedBy' : IDL.Opt(IDL.Principal),
+    'revokedAt' : IDL.Opt(IDL.Int),
   });
   const AuditEvent = IDL.Record({
     'id' : IDL.Nat,
@@ -110,6 +129,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const StateSnapshot = IDL.Record({
     'tasks' : IDL.Vec(Task),
+    'clientInvites' : IDL.Vec(ClientInvite),
     'nextDocumentId' : IDL.Nat,
     'documents' : IDL.Vec(DocumentRecord),
     'nextAccessRequestId' : IDL.Nat,
@@ -132,15 +152,8 @@ export const idlFactory = ({ IDL }) => {
     'nextNoteId' : IDL.Nat,
     'roleGrants' : IDL.Vec(RoleGrant),
     'approvals' : IDL.Vec(Approval),
+    'nextClientInviteId' : IDL.Nat,
     'clients' : IDL.Vec(Client),
-  });
-  const ClientPortalView = IDL.Record({
-    'client' : Client,
-    'tasks' : IDL.Vec(Task),
-    'documents' : IDL.Vec(DocumentRecord),
-    'projects' : IDL.Vec(Project),
-    'notes' : IDL.Vec(Note),
-    'approvals' : IDL.Vec(Approval),
   });
   const WorkspaceView = IDL.Record({
     'tasks' : IDL.Vec(Task),
@@ -214,6 +227,7 @@ export const idlFactory = ({ IDL }) => {
   });
   const StateCounts = IDL.Record({
     'tasks' : IDL.Nat,
+    'clientInvites' : IDL.Nat,
     'documents' : IDL.Nat,
     'audit' : IDL.Nat,
     'projects' : IDL.Nat,
@@ -248,10 +262,20 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'ask_agent' : IDL.Func([IDL.Text, IDL.Text], [AgentResponse], []),
+    'claim_client_invite' : IDL.Func(
+        [IDL.Nat, IDL.Text],
+        [ClientPortalView],
+        [],
+      ),
     'create_approval' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [Approval], []),
     'create_client' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Principal)],
         [Client],
+        [],
+      ),
+    'create_client_invite' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text],
+        [ClientInvite],
         [],
       ),
     'create_document_record' : IDL.Func(
@@ -293,7 +317,9 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(AuditEvent)],
         ['query'],
       ),
+    'list_client_invites' : IDL.Func([], [IDL.Vec(ClientInvite)], ['query']),
     'list_role_grants' : IDL.Func([], [IDL.Vec(RoleGrant)], ['query']),
+    'migrate_schema_version' : IDL.Func([], [IDL.Nat], []),
     'reject_access_request' : IDL.Func(
         [IDL.Nat, IDL.Text],
         [AccessRequest],
@@ -309,6 +335,7 @@ export const idlFactory = ({ IDL }) => {
         [Approval],
         [],
       ),
+    'revoke_client_invite' : IDL.Func([IDL.Nat], [ClientInvite], []),
     'revoke_role' : IDL.Func(
         [IDL.Principal, Role, IDL.Opt(IDL.Nat)],
         [IDL.Vec(RoleGrant)],
@@ -320,7 +347,28 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'seed_demo' : IDL.Func([], [WorkspaceView], []),
+    'update_client' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, IDL.Text],
+        [Client],
+        [],
+      ),
+    'update_document_record' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [DocumentRecord],
+        [],
+      ),
+    'update_note' : IDL.Func([IDL.Nat, IDL.Text], [Note], []),
+    'update_project' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, ProjectStatus],
+        [Project],
+        [],
+      ),
     'update_project_status' : IDL.Func([IDL.Nat, ProjectStatus], [Project], []),
+    'update_task' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, TaskStatus],
+        [Task],
+        [],
+      ),
     'update_task_status' : IDL.Func([IDL.Nat, TaskStatus], [Task], []),
   });
 };

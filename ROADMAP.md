@@ -17,8 +17,8 @@ SovereignDesk AI is moving from a public canister-native mainnet MVP toward a pr
 
 - Harden owner onboarding for the real Internet Identity principal.
 - Expand access request lifecycle: pending, approved, rejected, archived.
-- Add client invite flow with portal principal assignment.
-- Extend governance UI for client principal rotation, role revoke, and scoped grants.
+- Harden client invite lifecycle with expiring invite codes and notification hooks.
+- Extend governance UI for invite history, client principal rotation, role revoke, and scoped grants.
 - Add audit filters and export.
 
 ## Phase 3: Data and Documents

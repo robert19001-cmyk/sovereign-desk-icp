@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 
 const backendName = "sovereign_desk_backend";
-const expectedSchemaVersion = "2";
+const expectedSchemaVersion = "3";
 
 function runDfx(args) {
   return execFileSync("dfx", args, {

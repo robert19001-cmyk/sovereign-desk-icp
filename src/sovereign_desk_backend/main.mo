@@ -7,7 +7,7 @@ import Time "mo:base/Time";
 
 persistent actor {
   let bootstrapOwner : Principal = Principal.fromText("up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe");
-  let currentSchemaVersion : Nat = 2;
+  var currentSchemaVersion : Nat = 3;
 
   public type Workspace = {
     id : Nat;
@@ -111,6 +111,7 @@ persistent actor {
     audit : Nat;
     accessRequests : Nat;
     roleGrants : Nat;
+    clientInvites : Nat;
   };
 
   public type SystemInfo = {
@@ -136,6 +137,7 @@ persistent actor {
     approvedAccessRequestIds : [Nat];
     rejectedAccessRequestIds : [Nat];
     roleGrants : [RoleGrant];
+    clientInvites : [ClientInvite];
     nextWorkspaceId : Nat;
     nextClientId : Nat;
     nextProjectId : Nat;
@@ -146,6 +148,7 @@ persistent actor {
     nextAuditId : Nat;
     nextAgentResponseId : Nat;
     nextAccessRequestId : Nat;
+    nextClientInviteId : Nat;
   };
 
   public type ClientPortalView = {
@@ -186,6 +189,18 @@ persistent actor {
     role : Role;
     clientId : ?Nat;
     createdAt : Int;
+  };
+
+  public type ClientInvite = {
+    id : Nat;
+    clientId : Nat;
+    code : Text;
+    note : Text;
+    createdBy : Principal;
+    createdAt : Int;
+    claimedBy : ?Principal;
+    claimedAt : ?Int;
+    revokedAt : ?Int;
   };
 
   public type PublicWorkspace = {
@@ -271,6 +286,7 @@ persistent actor {
   var approvedAccessRequestIds : [Nat] = [];
   var rejectedAccessRequestIds : [Nat] = [];
   var roleGrants : [RoleGrant] = [];
+  var clientInvites : [ClientInvite] = [];
 
   var nextWorkspaceId : Nat = 1;
   var nextClientId : Nat = 1;
@@ -282,6 +298,7 @@ persistent actor {
   var nextAuditId : Nat = 1;
   var nextAgentResponseId : Nat = 1;
   var nextAccessRequestId : Nat = 1;
+  var nextClientInviteId : Nat = 1;
 
   func now() : Int {
     Time.now()
@@ -298,6 +315,7 @@ persistent actor {
       audit = Array.size(audit);
       accessRequests = Array.size(accessRequests);
       roleGrants = Array.size(roleGrants);
+      clientInvites = Array.size(clientInvites);
     }
   };
 
@@ -479,6 +497,27 @@ persistent actor {
     }
   };
 
+  func clientPortalViewById(clientId : Nat) : ?ClientPortalView {
+    switch (clientById(clientId)) {
+      case (?client) {
+        let clientProjects = Array.filter<Project>(projects, func(project) { project.clientId == clientId });
+        let projectIds = Array.map<Project, Nat>(clientProjects, func(project) { project.id });
+        func inProject(projectId : Nat) : Bool {
+          Array.find<Nat>(projectIds, func(id) { id == projectId }) != null
+        };
+        ?{
+          client;
+          projects = clientProjects;
+          tasks = Array.filter<Task>(tasks, func(task) { inProject(task.projectId) });
+          approvals = Array.filter<Approval>(approvals, func(approval) { inProject(approval.projectId) });
+          documents = Array.filter<DocumentRecord>(documents, func(document) { inProject(document.projectId) });
+          notes = Array.filter<Note>(notes, func(note) { inProject(note.projectId) });
+        }
+      };
+      case null { null };
+    }
+  };
+
   func containsNat(values : [Nat], value : Nat) : Bool {
     Array.find<Nat>(values, func(item) { item == value }) != null
   };
@@ -525,6 +564,37 @@ persistent actor {
 
   func roleGrantMatches(grant : RoleGrant, principal : Principal, role : Role, clientId : ?Nat) : Bool {
     grant.principal == principal and sameRole(grant.role, role) and grant.clientId == clientId
+  };
+
+  func isInviteOpen(invite : ClientInvite) : Bool {
+    switch (invite.claimedBy, invite.revokedAt) {
+      case (null, null) { true };
+      case (_) { false };
+    }
+  };
+
+  func bindClientPrincipal(bindingActor : Principal, clientId : Nat, principal : Principal) : Client {
+    var updated : ?Client = null;
+    clients := Array.map<Client, Client>(
+      clients,
+      func(client) {
+        if (client.id != clientId) {
+          client
+        } else {
+          let next : Client = { client with portalPrincipal = ?principal };
+          updated := ?next;
+          next
+        }
+      },
+    );
+    switch (updated) {
+      case (?client) {
+        grantRole(bindingActor, principal, #Client, ?client.id);
+        addAudit(bindingActor, "client.principal.rotated", "client:" # Nat.toText(client.id), "Client portal principal rotated");
+        client
+      };
+      case null { Debug.trap("client not found") };
+    }
   };
 
   func validateRoleGrant(caller : Principal, role : Role, clientId : ?Nat) {
@@ -624,6 +694,13 @@ persistent actor {
     }
   };
 
+  public shared ({ caller }) func migrate_schema_version() : async Nat {
+    requireOwner(caller);
+    currentSchemaVersion := 3;
+    addAudit(caller, "system.schema.migrated", "schema:3", "Schema version migrated");
+    currentSchemaVersion
+  };
+
   public shared query ({ caller }) func export_state_snapshot() : async StateSnapshot {
     requireOwner(caller);
     {
@@ -641,6 +718,7 @@ persistent actor {
       approvedAccessRequestIds;
       rejectedAccessRequestIds;
       roleGrants;
+      clientInvites;
       nextWorkspaceId;
       nextClientId;
       nextProjectId;
@@ -651,6 +729,7 @@ persistent actor {
       nextAuditId;
       nextAgentResponseId;
       nextAccessRequestId;
+      nextClientInviteId;
     }
   };
 
@@ -693,26 +772,108 @@ persistent actor {
 
   public shared ({ caller }) func rotate_client_principal(clientId : Nat, principal : Principal) : async Client {
     requireGovernance(caller);
-    var updated : ?Client = null;
-    clients := Array.map<Client, Client>(
-      clients,
-      func(client) {
-        if (client.id != clientId) {
-          client
+    bindClientPrincipal(caller, clientId, principal)
+  };
+
+  public shared ({ caller }) func create_client_invite(clientId : Nat, code : Text, note : Text) : async ClientInvite {
+    requireAdmin(caller);
+    requireText("invite code", code, 80);
+    requireText("invite note", note, 240);
+    switch (clientById(clientId)) {
+      case null { Debug.trap("client not found") };
+      case (?_) {};
+    };
+    switch (
+      Array.find<ClientInvite>(
+        clientInvites,
+        func(invite) { invite.clientId == clientId and invite.code == code and isInviteOpen(invite) },
+      )
+    ) {
+      case (?existing) { existing };
+      case null {
+        let invite : ClientInvite = {
+          id = nextClientInviteId;
+          clientId;
+          code;
+          note;
+          createdBy = caller;
+          createdAt = now();
+          claimedBy = null;
+          claimedAt = null;
+          revokedAt = null;
+        };
+        nextClientInviteId += 1;
+        clientInvites := Array.append(clientInvites, [invite]);
+        addAudit(caller, "client.invite.created", "client:" # Nat.toText(clientId), "Client invite created");
+        invite
+      };
+    }
+  };
+
+  public shared query ({ caller }) func list_client_invites() : async [ClientInvite] {
+    requireAdmin(caller);
+    clientInvites
+  };
+
+  public shared ({ caller }) func revoke_client_invite(inviteId : Nat) : async ClientInvite {
+    requireAdmin(caller);
+    var updated : ?ClientInvite = null;
+    clientInvites := Array.map<ClientInvite, ClientInvite>(
+      clientInvites,
+      func(invite) {
+        if (invite.id != inviteId) {
+          invite
         } else {
-          let next : Client = { client with portalPrincipal = ?principal };
+          let next : ClientInvite = { invite with revokedAt = ?now() };
           updated := ?next;
           next
         }
       },
     );
     switch (updated) {
-      case (?client) {
-        grantRole(caller, principal, #Client, ?client.id);
-        addAudit(caller, "client.principal.rotated", "client:" # Nat.toText(client.id), "Client portal principal rotated");
-        client
+      case (?invite) {
+        addAudit(caller, "client.invite.revoked", "invite:" # Nat.toText(invite.id), "Client invite revoked");
+        invite
       };
-      case null { Debug.trap("client not found") };
+      case null { Debug.trap("invite not found") };
+    }
+  };
+
+  public shared ({ caller }) func claim_client_invite(clientId : Nat, code : Text) : async ClientPortalView {
+    requireAuthenticated(caller);
+    requireText("invite code", code, 80);
+    var claimed : ?ClientInvite = null;
+    clientInvites := Array.map<ClientInvite, ClientInvite>(
+      clientInvites,
+      func(invite) {
+        switch (claimed) {
+          case (?_) { invite };
+          case null {
+            if (invite.clientId == clientId and invite.code == code and isInviteOpen(invite)) {
+              let next : ClientInvite = {
+                invite with
+                claimedBy = ?caller;
+                claimedAt = ?now();
+              };
+              claimed := ?next;
+              next
+            } else {
+              invite
+            }
+          };
+        }
+      },
+    );
+    switch (claimed) {
+      case (?invite) {
+        ignore bindClientPrincipal(caller, clientId, caller);
+        addAudit(caller, "client.invite.claimed", "invite:" # Nat.toText(invite.id), "Client invite claimed");
+        switch (clientPortalViewById(clientId)) {
+          case (?portal) { portal };
+          case null { Debug.trap("client portal not accessible") };
+        }
+      };
+      case null { Debug.trap("invite not found or already used") };
     }
   };
 
@@ -963,6 +1124,43 @@ persistent actor {
     client
   };
 
+  public shared ({ caller }) func update_client(
+    clientId : Nat,
+    name : Text,
+    contactName : Text,
+    contactEmail : Text,
+  ) : async Client {
+    requireAdmin(caller);
+    requireText("client name", name, 120);
+    requireText("contact name", contactName, 120);
+    requireText("contact email", contactEmail, 180);
+    var updated : ?Client = null;
+    clients := Array.map<Client, Client>(
+      clients,
+      func(client) {
+        if (client.id != clientId) {
+          client
+        } else {
+          let next : Client = {
+            client with
+            name;
+            contactName;
+            contactEmail;
+          };
+          updated := ?next;
+          next
+        }
+      },
+    );
+    switch (updated) {
+      case (?client) {
+        addAudit(caller, "client.updated", "client:" # Nat.toText(client.id), client.name);
+        client
+      };
+      case null { Debug.trap("client not found") };
+    }
+  };
+
   public shared ({ caller }) func create_project(
     clientId : Nat,
     name : Text,
@@ -989,6 +1187,42 @@ persistent actor {
     project
   };
 
+  public shared ({ caller }) func update_project(
+    projectId : Nat,
+    name : Text,
+    summary : Text,
+    status : ProjectStatus,
+  ) : async Project {
+    requireAdmin(caller);
+    requireText("project name", name, 140);
+    requireText("project summary", summary, 500);
+    var updated : ?Project = null;
+    projects := Array.map<Project, Project>(
+      projects,
+      func(project) {
+        if (project.id != projectId) {
+          project
+        } else {
+          let next : Project = {
+            project with
+            name;
+            summary;
+            status;
+          };
+          updated := ?next;
+          next
+        }
+      },
+    );
+    switch (updated) {
+      case (?project) {
+        addAudit(caller, "project.updated", "project:" # Nat.toText(project.id), project.name);
+        project
+      };
+      case null { Debug.trap("project not found") };
+    }
+  };
+
   public shared ({ caller }) func create_task(
     projectId : Nat,
     title : Text,
@@ -1013,6 +1247,42 @@ persistent actor {
     tasks := Array.append(tasks, [task]);
     addAudit(caller, "task.created", "task:" # Nat.toText(task.id), title);
     task
+  };
+
+  public shared ({ caller }) func update_task(
+    taskId : Nat,
+    title : Text,
+    assignee : Text,
+    status : TaskStatus,
+  ) : async Task {
+    requireAdmin(caller);
+    requireText("task title", title, 180);
+    requireText("task assignee", assignee, 80);
+    var updated : ?Task = null;
+    tasks := Array.map<Task, Task>(
+      tasks,
+      func(task) {
+        if (task.id != taskId) {
+          task
+        } else {
+          let next : Task = {
+            task with
+            title;
+            assignee;
+            status;
+          };
+          updated := ?next;
+          next
+        }
+      },
+    );
+    switch (updated) {
+      case (?task) {
+        addAudit(caller, "task.updated", "task:" # Nat.toText(task.id), task.title);
+        task
+      };
+      case null { Debug.trap("task not found") };
+    }
   };
 
   public shared ({ caller }) func update_task_status(taskId : Nat, status : TaskStatus) : async Task {
@@ -1180,6 +1450,47 @@ persistent actor {
     document
   };
 
+  public shared ({ caller }) func update_document_record(
+    documentId : Nat,
+    name : Text,
+    mimeType : Text,
+    encryptedKeyRef : Text,
+    contentHash : Text,
+  ) : async DocumentRecord {
+    requireAdmin(caller);
+    requireText("document name", name, 180);
+    requireText("document mime type", mimeType, 120);
+    requireText("encrypted key ref", encryptedKeyRef, 240);
+    requireText("content hash", contentHash, 240);
+    requireSha256Hash(contentHash);
+    var updated : ?DocumentRecord = null;
+    documents := Array.map<DocumentRecord, DocumentRecord>(
+      documents,
+      func(document) {
+        if (document.id != documentId) {
+          document
+        } else {
+          let next : DocumentRecord = {
+            document with
+            name;
+            mimeType;
+            encryptedKeyRef;
+            contentHash;
+          };
+          updated := ?next;
+          next
+        }
+      },
+    );
+    switch (updated) {
+      case (?document) {
+        addAudit(caller, "document.updated", "document:" # Nat.toText(document.id), document.name);
+        document
+      };
+      case null { Debug.trap("document not found") };
+    }
+  };
+
   public shared ({ caller }) func append_note(projectId : Nat, body : Text) : async Note {
     requireAuthenticated(caller);
     requireText("note body", body, 1_500);
@@ -1204,6 +1515,39 @@ persistent actor {
     note
   };
 
+  public shared ({ caller }) func update_note(noteId : Nat, body : Text) : async Note {
+    requireAuthenticated(caller);
+    requireText("note body", body, 1_500);
+    var updated : ?Note = null;
+    notes := Array.map<Note, Note>(
+      notes,
+      func(note) {
+        if (note.id != noteId) {
+          note
+        } else {
+          switch (projectById(note.projectId)) {
+            case (?project) {
+              if (not canAccessProject(caller, project)) {
+                Debug.trap("note not accessible");
+              };
+            };
+            case null { Debug.trap("project not found") };
+          };
+          let next : Note = { note with body };
+          updated := ?next;
+          next
+        }
+      },
+    );
+    switch (updated) {
+      case (?note) {
+        addAudit(caller, "note.updated", "note:" # Nat.toText(note.id), body);
+        note
+      };
+      case null { Debug.trap("note not found") };
+    }
+  };
+
   public shared query ({ caller }) func get_client_portal(clientId : Nat) : async ?ClientPortalView {
     requireAuthenticated(caller);
     switch (clientById(clientId)) {
@@ -1211,19 +1555,7 @@ persistent actor {
         if (not canAccessClient(caller, client)) {
           return null;
         };
-        let clientProjects = Array.filter<Project>(projects, func(project) { project.clientId == clientId });
-        let projectIds = Array.map<Project, Nat>(clientProjects, func(project) { project.id });
-        func inProject(projectId : Nat) : Bool {
-          Array.find<Nat>(projectIds, func(id) { id == projectId }) != null
-        };
-        ?{
-          client;
-          projects = clientProjects;
-          tasks = Array.filter<Task>(tasks, func(task) { inProject(task.projectId) });
-          approvals = Array.filter<Approval>(approvals, func(approval) { inProject(approval.projectId) });
-          documents = Array.filter<DocumentRecord>(documents, func(document) { inProject(document.projectId) });
-          notes = Array.filter<Note>(notes, func(note) { inProject(note.projectId) });
-        }
+        clientPortalViewById(clientId)
       };
       case null { null };
     }

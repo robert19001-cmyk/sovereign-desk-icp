@@ -97,8 +97,10 @@ Current mainnet MVP hardening includes:
 - authenticated access modes for operator, client portal, signed read-only, and public read-only users;
 - on-chain operator access request queue with governance-side approval;
 - role grants, revocation, and client portal principal rotation;
+- client invite codes for self-service Internet Identity portal claiming;
+- update endpoints for client, project, task, document metadata, and notes;
 - approval final-state protection and backend-side document hash validation;
-- schema version endpoint and owner-only state snapshot export;
+- schema version v3 endpoint and owner-only state snapshot export;
 - Trust Center section with canister IDs, controller, module hashes, dashboard links, and verification command;
 - independent-project disclaimer for DFINITY/Internet Computer branding;
 - tightened asset canister CSP and Permissions-Policy;
@@ -184,17 +186,27 @@ The backend exposes:
 - `grant_role`
 - `revoke_role`
 - `rotate_client_principal`
+- `create_client_invite`
+- `list_client_invites`
+- `claim_client_invite`
+- `revoke_client_invite`
 - `get_system_info`
+- `migrate_schema_version`
 - `export_state_snapshot`
 - `create_client`
+- `update_client`
 - `create_project`
+- `update_project`
 - `create_task`
+- `update_task`
 - `update_task_status`
 - `update_project_status`
 - `create_approval`
 - `respond_approval`
 - `create_document_record`
+- `update_document_record`
 - `append_note`
+- `update_note`
 - `get_client_portal`
 - `ask_agent`
 - `list_audit`
@@ -203,7 +215,7 @@ The backend exposes:
 ## Next Build Steps
 
 - Move controller identity from plaintext dev identity to a hardware-backed or passphrase-protected controller.
-- Add request status lifecycle: pending, approved, rejected, archived.
+- Add request status lifecycle UX: pending, approved, rejected, archived.
 - Split vault, audit/proof, and agent into separate canisters once the core workflow is stable.
 - Add vetKeys for client-side encrypted document keys.
 - Add proper file upload and certified document retrieval.

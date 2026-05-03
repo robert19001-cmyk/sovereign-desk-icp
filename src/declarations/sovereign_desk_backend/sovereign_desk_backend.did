@@ -46,6 +46,7 @@ type StateSnapshot =
    approvals: vec Approval;
    approvedAccessRequestIds: vec nat;
    audit: vec AuditEvent;
+   clientInvites: vec ClientInvite;
    clients: vec Client;
    documents: vec DocumentRecord;
    exportedAt: int;
@@ -54,6 +55,7 @@ type StateSnapshot =
    nextApprovalId: nat;
    nextAuditId: nat;
    nextClientId: nat;
+   nextClientInviteId: nat;
    nextDocumentId: nat;
    nextNoteId: nat;
    nextProjectId: nat;
@@ -72,6 +74,7 @@ type StateCounts =
    accessRequests: nat;
    approvals: nat;
    audit: nat;
+   clientInvites: nat;
    clients: nat;
    documents: nat;
    notes: nat;
@@ -207,6 +210,18 @@ type ClientPortalView =
    projects: vec Project;
    tasks: vec Task;
  };
+type ClientInvite =
+ record {
+   claimedAt: opt int;
+   claimedBy: opt principal;
+   clientId: nat;
+   code: text;
+   createdAt: int;
+   createdBy: principal;
+   id: nat;
+   note: text;
+   revokedAt: opt int;
+ };
 type Client =
  record {
    contactEmail: text;
@@ -274,9 +289,12 @@ service : {
   append_note: (projectId: nat, body: text) -> (Note);
   approve_access_request: (requestId: nat) -> (vec principal);
   ask_agent: (scope: text, prompt: text) -> (AgentResponse);
+  claim_client_invite: (clientId: nat, code: text) -> (ClientPortalView);
   create_approval: (projectId: nat, title: text, body: text) -> (Approval);
   create_client: (name: text, contactName: text, contactEmail: text,
    portalPrincipal: opt principal) -> (Client);
+  create_client_invite: (clientId: nat, code: text, note: text) ->
+   (ClientInvite);
   create_document_record: (projectId: nat, name: text, mimeType: text,
    sizeBytes: nat, encryptedKeyRef: text, contentHash: text) ->
    (DocumentRecord);
@@ -295,16 +313,28 @@ service : {
   list_access_request_history: () -> (vec AccessRequestReview) query;
   list_access_requests: () -> (vec AccessRequest) query;
   list_audit: (offset: nat, limit: nat) -> (vec AuditEvent) query;
+  list_client_invites: () -> (vec ClientInvite) query;
   list_role_grants: () -> (vec RoleGrant) query;
+  migrate_schema_version: () -> (nat);
   reject_access_request: (requestId: nat, reason: text) -> (AccessRequest);
   request_operator_access: (email: text, note: text) -> (AccessRequest);
   respond_approval: (approvalId: nat, decision: ApprovalStatus, comment:
    text) -> (Approval);
+  revoke_client_invite: (inviteId: nat) -> (ClientInvite);
   revoke_role: ("principal": principal, role: Role, clientId: opt nat) ->
    (vec RoleGrant);
   rotate_client_principal: (clientId: nat, "principal": principal) ->
    (Client);
   seed_demo: () -> (WorkspaceView);
+  update_client: (clientId: nat, name: text, contactName: text, contactEmail:
+   text) -> (Client);
+  update_document_record: (documentId: nat, name: text, mimeType: text,
+   encryptedKeyRef: text, contentHash: text) -> (DocumentRecord);
+  update_note: (noteId: nat, body: text) -> (Note);
+  update_project: (projectId: nat, name: text, summary: text, status:
+   ProjectStatus) -> (Project);
   update_project_status: (projectId: nat, status: ProjectStatus) -> (Project);
+  update_task: (taskId: nat, title: text, assignee: text, status:
+   TaskStatus) -> (Task);
   update_task_status: (taskId: nat, status: TaskStatus) -> (Task);
 }
