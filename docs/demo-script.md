@@ -1,0 +1,102 @@
+# Demo Script
+
+Use this path to review SovereignDesk AI in 60-90 seconds.
+
+## 1. Open the Live App
+
+```text
+https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/
+```
+
+Confirm:
+
+- the public app loads from an ICP asset canister;
+- the workspace preview is visible without login;
+- public client/project/task/approval content is redacted;
+- creator contact is visible;
+- the UI includes a Trust Center.
+
+## 2. Inspect the Trust Center
+
+Scroll to **Trust Center**.
+
+Confirm:
+
+- frontend canister: `v7inb-hyaaa-aaaal-qw7aq-cai`;
+- backend canister: `vyjlv-kaaaa-aaaal-qw7aa-cai`;
+- controller principal is listed;
+- backend module hash is listed;
+- source remote is listed;
+- DFINITY/Internet Computer independent-project disclaimer is visible.
+
+## 3. Open Backend Candid
+
+```text
+https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=vyjlv-kaaaa-aaaal-qw7aa-cai
+```
+
+Try read-only calls:
+
+- `get_public_demo`
+- `list_access_requests` with the controller identity
+- `list_access_request_history` with the controller identity
+
+## 4. Verify Public Redaction
+
+Call:
+
+```bash
+DFX_WARNING=-mainnet_plaintext_identity dfx canister call --network ic sovereign_desk_backend get_public_demo
+```
+
+Confirm public responses do not expose:
+
+- client email;
+- portal principal;
+- owner principal;
+- raw actor principal;
+- real project/task/approval/document/note/audit content.
+
+## 5. Test Internet Identity Flow
+
+In the live app:
+
+1. Click **Login with Internet Identity**.
+2. Sign in with any Internet Identity.
+3. If the identity is not an operator or portal principal, confirm the app stays usable in signed read-only mode.
+4. Submit **Request access on-chain**.
+
+Expected behavior:
+
+- the request is written to the backend canister;
+- the user sees a success notice;
+- operators can later review it in the access queue.
+
+## 6. Operator Review Path
+
+With the controller/operator identity:
+
+1. Log in.
+2. Confirm the operator console appears.
+3. Review pending access requests.
+4. Approve or reject a request.
+5. Confirm the audit trail records the action.
+
+## 7. Local Verification
+
+```bash
+npm ci
+npm test
+npm run qa:mainnet
+```
+
+Mainnet status:
+
+```bash
+DFX_WARNING=-mainnet_plaintext_identity dfx canister status --network ic sovereign_desk_backend
+DFX_WARNING=-mainnet_plaintext_identity dfx canister status --network ic sovereign_desk_frontend
+```
+
+## Review Notes
+
+This is a canister-native MVP, not a finished production system. The next hardening step is moving controller rights away from the plaintext development identity and toward a protected identity, multisig, Launchtrail, SNS, or another governance model.

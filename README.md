@@ -26,6 +26,7 @@ The current implementation is intentionally canister-first and dependency-light:
 - [Security policy](SECURITY.md)
 - [Roadmap](ROADMAP.md)
 - [Reproducible build notes](docs/reproducible-build.md)
+- [Demo script](docs/demo-script.md)
 - [Case study](docs/case-study.md)
 
 ## Local Canisters
