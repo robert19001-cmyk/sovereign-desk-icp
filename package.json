@@ -1,0 +1,25 @@
+{
+    "name": "sovereign_desk",
+    "type": "module",
+    "scripts": {
+        "start": "vite --host 127.0.0.1 --config src/sovereign_desk_frontend/vite.config.js",
+        "prebuild": "echo \"Building SovereignDesk frontend\"",
+        "build": "vite build --config src/sovereign_desk_frontend/vite.config.js",
+        "pretest": "echo \"No pretest step required\"",
+        "test": "npm run build",
+        "qa:mainnet": "node scripts/qa-mainnet.mjs"
+    },
+    "engines": {
+        "node": ">=16.0.0",
+        "npm": ">=7.0.0"
+    },
+    "workspaces": [],
+    "dependencies": {
+        "@icp-sdk/auth": "^6.2.2",
+        "@icp-sdk/core": "^5.4.0",
+        "vite": "^8.0.10"
+    },
+    "devDependencies": {
+        "playwright": "^1.59.1"
+    }
+}

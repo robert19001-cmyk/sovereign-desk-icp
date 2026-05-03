@@ -1,0 +1,25 @@
+{
+  "canisters": {
+    "sovereign_desk_backend": {
+      "main": "src/sovereign_desk_backend/main.mo",
+      "type": "motoko"
+    },
+    "sovereign_desk_frontend": {
+      "dependencies": [
+        "sovereign_desk_backend"
+      ],
+      "source": [
+        "src/sovereign_desk_frontend/dist"
+      ],
+      "type": "assets"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
