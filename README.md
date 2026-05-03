@@ -2,6 +2,15 @@
 
 SovereignDesk AI is a first ICP MVP for a sovereign client portal: workspaces, clients, projects, tasks, document records, approvals, audit trail, and an AI Employee draft endpoint.
 
+```text
+Live app: https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/
+Backend:  vyjlv-kaaaa-aaaal-qw7aa-cai
+Frontend: v7inb-hyaaa-aaaal-qw7aq-cai
+Creator:  Robert <robert19001@gmail.com>
+```
+
+Built on Internet Computer. This project is independent and is not affiliated with or endorsed by the DFINITY Foundation.
+
 The current implementation is intentionally canister-first and dependency-light:
 
 - Motoko persistent backend canister.
@@ -11,6 +20,13 @@ The current implementation is intentionally canister-first and dependency-light:
 - No AWS, Vercel, external database, or centralized app server.
 - Local demo seeded through the backend `seed_demo` method.
 - `icp-cli` is installed for the next migration step, while this MVP currently deploys through `dfx`.
+
+## Repository Docs
+
+- [Security policy](SECURITY.md)
+- [Roadmap](ROADMAP.md)
+- [Reproducible build notes](docs/reproducible-build.md)
+- [Case study](docs/case-study.md)
 
 ## Local Canisters
 

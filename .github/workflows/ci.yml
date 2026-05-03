@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm test
+
+      - name: Check required docs
+        run: |
+          test -f README.md
+          test -f SECURITY.md
+          test -f ROADMAP.md
+          test -f docs/reproducible-build.md
+
+      - name: Check public metadata
+        run: |
+          grep -q "v7inb-hyaaa-aaaal-qw7aq-cai" README.md
+          grep -q "vyjlv-kaaaa-aaaal-qw7aa-cai" README.md
+          grep -q "robert19001@gmail.com" README.md
