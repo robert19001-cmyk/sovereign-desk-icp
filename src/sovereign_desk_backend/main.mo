@@ -122,6 +122,13 @@ persistent actor {
     createdAt : Int;
   };
 
+  public type AccessRequestStatus = { #Pending; #Approved; #Rejected };
+
+  public type AccessRequestReview = {
+    request : AccessRequest;
+    status : AccessRequestStatus;
+  };
+
   public type PublicWorkspace = {
     name : Text;
     profile : Text;
@@ -202,6 +209,8 @@ persistent actor {
   var audit : [AuditEvent] = [];
   var agentResponses : [AgentResponse] = [];
   var accessRequests : [AccessRequest] = [];
+  var approvedAccessRequestIds : [Nat] = [];
+  var rejectedAccessRequestIds : [Nat] = [];
 
   var nextWorkspaceId : Nat = 1;
   var nextClientId : Nat = 1;
@@ -289,6 +298,27 @@ persistent actor {
     }
   };
 
+  func containsNat(values : [Nat], value : Nat) : Bool {
+    Array.find<Nat>(values, func(item) { item == value }) != null
+  };
+
+  func accessRequestStatus(request : AccessRequest) : AccessRequestStatus {
+    if (containsNat(approvedAccessRequestIds, request.id)) {
+      #Approved
+    } else if (containsNat(rejectedAccessRequestIds, request.id)) {
+      #Rejected
+    } else {
+      #Pending
+    }
+  };
+
+  func isPendingAccessRequest(request : AccessRequest) : Bool {
+    switch (accessRequestStatus(request)) {
+      case (#Pending) { true };
+      case (_) { false };
+    }
+  };
+
   public shared ({ caller }) func init_workspace(name : Text, profile : Text) : async Workspace {
     requireAuthenticated(caller);
     switch (workspace) {
@@ -342,18 +372,51 @@ persistent actor {
 
   public shared query ({ caller }) func list_access_requests() : async [AccessRequest] {
     requireAdmin(caller);
-    accessRequests
+    Array.filter<AccessRequest>(accessRequests, isPendingAccessRequest)
+  };
+
+  public shared query ({ caller }) func list_access_request_history() : async [AccessRequestReview] {
+    requireAdmin(caller);
+    Array.map<AccessRequest, AccessRequestReview>(
+      accessRequests,
+      func(request) {
+        {
+          request;
+          status = accessRequestStatus(request);
+        }
+      },
+    )
   };
 
   public shared ({ caller }) func approve_access_request(requestId : Nat) : async [Principal] {
     requireAdmin(caller);
     switch (Array.find<AccessRequest>(accessRequests, func(request) { request.id == requestId })) {
       case (?request) {
+        if (not isPendingAccessRequest(request)) {
+          Debug.trap("access request already reviewed");
+        };
         if (Array.find<Principal>(admins, func(p) { p == request.principal }) == null) {
           admins := Array.append(admins, [request.principal]);
         };
+        approvedAccessRequestIds := Array.append(approvedAccessRequestIds, [request.id]);
         addAudit(caller, "access.approved", "access-request:" # Nat.toText(request.id), request.email);
         admins
+      };
+      case null { Debug.trap("access request not found") };
+    }
+  };
+
+  public shared ({ caller }) func reject_access_request(requestId : Nat, reason : Text) : async AccessRequest {
+    requireAdmin(caller);
+    requireText("rejection reason", reason, 500);
+    switch (Array.find<AccessRequest>(accessRequests, func(request) { request.id == requestId })) {
+      case (?request) {
+        if (not isPendingAccessRequest(request)) {
+          Debug.trap("access request already reviewed");
+        };
+        rejectedAccessRequestIds := Array.append(rejectedAccessRequestIds, [request.id]);
+        addAudit(caller, "access.rejected", "access-request:" # Nat.toText(request.id), reason);
+        request
       };
       case null { Debug.trap("access request not found") };
     }

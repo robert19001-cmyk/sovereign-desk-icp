@@ -352,7 +352,7 @@ h3 {
   margin: 0;
 }
 
-.signal-panel dl div, .metric, .surface, .architecture, .creator-signal, .roadmap, .empty-state, .access-panel {
+.signal-panel dl div, .metric, .surface, .architecture, .creator-signal, .roadmap, .empty-state, .access-panel, .trust-center {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.92);
@@ -631,7 +631,7 @@ dd {
   overflow-wrap: anywhere;
 }
 
-.architecture, .creator-signal, .roadmap {
+.architecture, .creator-signal, .roadmap, .trust-center {
   margin-top: 1rem;
 }
 
@@ -652,6 +652,64 @@ dd {
   border-radius: var(--radius-sm);
   background: var(--paper-2);
   font-weight: 760;
+}
+
+.trust-center {
+  padding: clamp(1rem, 2vw, 1.35rem);
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(120deg, rgba(16, 17, 20, 0.18), rgba(107, 70, 255, 0.55), rgba(21, 137, 255, 0.45)) border-box;
+  border: 1px solid transparent;
+}
+
+.trust-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.trust-grid article {
+  min-width: 0;
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+}
+
+.trust-grid span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 780;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.trust-grid strong, .trust-grid code {
+  overflow-wrap: anywhere;
+}
+
+.trust-grid code {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.trust-grid a {
+  color: var(--blue);
+  font-weight: 760;
+}
+
+.trust-grid p, .trust-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.48;
+}
+
+.trust-note {
+  margin-top: 1rem;
 }
 
 .creator-signal {
@@ -777,6 +835,13 @@ dd {
   background: var(--paper-2);
 }
 
+.request-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .access-queue strong, .access-queue span, .access-queue code {
   display: block;
 }
@@ -876,7 +941,7 @@ dd {
     min-height: 420px;
   }
 
-  .proof-strip, .architecture ul, .roadmap ol {
+  .proof-strip, .architecture ul, .roadmap ol, .trust-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -904,7 +969,7 @@ dd {
     font-size: clamp(2.6rem, 16vw, 4.2rem);
   }
 
-  .proof-strip, .architecture ul, .signal-panel dl, .portal-grid, .roadmap ol {
+  .proof-strip, .architecture ul, .signal-panel dl, .portal-grid, .roadmap ol, .trust-grid {
     grid-template-columns: 1fr;
   }
 
@@ -926,13 +991,17 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .request-actions {
+    justify-content: flex-start;
+  }
+
   .signal-panel {
     min-height: 360px;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .hero-copy, .signal-panel, .proof-strip, .surface, .architecture, .access-panel {
+  .hero-copy, .signal-panel, .proof-strip, .surface, .architecture, .access-panel, .trust-center {
     animation: rise 520ms ease both;
   }
 
@@ -956,7 +1025,7 @@ dd {
     animation-delay: -3.6s;
   }
 
-  .metric:hover, .surface:hover, .architecture li:hover, .roadmap li:hover {
+  .metric:hover, .surface:hover, .architecture li:hover, .roadmap li:hover, .trust-grid article:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow);
     transition: transform 180ms ease, box-shadow 180ms ease;

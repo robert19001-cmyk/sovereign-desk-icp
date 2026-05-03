@@ -7,6 +7,14 @@ import "./styles.css";
 const BACKEND_CANISTER_ID = __BACKEND_CANISTER_ID__;
 const DFX_NETWORK = __DFX_NETWORK__;
 const MAINNET_HOST = "https://icp-api.io";
+const FRONTEND_CANISTER_ID = "v7inb-hyaaa-aaaal-qw7aq-cai";
+const TRUST = {
+  controller: "up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe",
+  backendModuleHash: "0x3a0e51127ce0070247c44ff77e7b91b2d998dc8239e9474b0ddd4b133564a42d",
+  frontendModuleHash: "0x04e565b3425fe7510ee16b02adcfe3f01abc9a2725c82a21cb08969241debd62",
+  governance: "Single developer controller; next step is hardware-backed identity, multisig, or SNS.",
+  source: "git@github.com:robert19001-cmyk/sovereign-desk-icp.git",
+};
 const CREATOR = {
   name: "Robert",
   title: "Canister product builder",
@@ -326,6 +334,55 @@ function renderCapabilities(view) {
   `;
 }
 
+function renderTrustCenter() {
+  const statusCommand = `dfx canister status --network ic ${BACKEND_CANISTER_ID}`;
+  return `
+    <section id="trust" class="trust-center">
+      <div class="section-heading">
+        <span>Trust Center</span>
+        <h2>Trust Center for ICP reviewers.</h2>
+      </div>
+      <div class="trust-grid">
+        <article>
+          <span>Frontend canister</span>
+          <strong>${e(FRONTEND_CANISTER_ID)}</strong>
+          <a href="https://dashboard.internetcomputer.org/canister/${e(FRONTEND_CANISTER_ID)}" target="_blank" rel="noreferrer">Open dashboard</a>
+        </article>
+        <article>
+          <span>Backend canister</span>
+          <strong>${e(BACKEND_CANISTER_ID)}</strong>
+          <a href="https://dashboard.internetcomputer.org/canister/${e(BACKEND_CANISTER_ID)}" target="_blank" rel="noreferrer">Open dashboard</a>
+        </article>
+        <article>
+          <span>Controller</span>
+          <strong>${e(shortPrincipal(TRUST.controller))}</strong>
+          <p>${e(TRUST.governance)}</p>
+        </article>
+        <article>
+          <span>Backend module hash</span>
+          <code>${e(TRUST.backendModuleHash)}</code>
+        </article>
+        <article>
+          <span>Asset canister module</span>
+          <code>${e(TRUST.frontendModuleHash)}</code>
+        </article>
+        <article>
+          <span>Verify locally</span>
+          <code>${e(statusCommand)}</code>
+        </article>
+        <article>
+          <span>Source remote</span>
+          <code>${e(TRUST.source)}</code>
+        </article>
+      </div>
+      <p class="trust-note">
+        Built on Internet Computer. This project is independent and is not affiliated with or endorsed by the DFINITY Foundation.
+        Public canister responses are redacted; authenticated roles see scoped workspace or portal data.
+      </p>
+    </section>
+  `;
+}
+
 function renderCreatorSignal() {
   return `
     <section id="creator" class="creator-signal">
@@ -389,7 +446,10 @@ function renderOperatorConsole(view) {
           <span>${e(request.note)}</span>
           <code>${e(principal)}</code>
         </div>
-        <button type="button" data-action="approve-access-request" data-request-id="${e(natText(request.id))}" data-principal="${e(principal)}">Grant admin</button>
+        <div class="request-actions">
+          <button type="button" data-action="approve-access-request" data-request-id="${e(natText(request.id))}" data-principal="${e(principal)}">Grant admin</button>
+          <button type="button" class="secondary" data-action="reject-access-request" data-request-id="${e(natText(request.id))}">Reject</button>
+        </div>
       </li>
     `;
   }).join("");
@@ -557,6 +617,7 @@ function render() {
           <a href="#clients">Workspace</a>
           <a href="#agent">AI</a>
           <a href="#architecture">Architecture</a>
+          <a href="#trust">Trust</a>
           ${state.operatorAccess ? '<a href="#operate">Operate</a>' : state.isAuthenticated ? '<a href="#access">Access</a>' : ""}
         </nav>
       </header>
@@ -572,6 +633,7 @@ function render() {
           ${renderWorkflow(view)}
           ${renderAgentAndAudit(view)}
           ${renderCapabilities(view)}
+          ${renderTrustCenter()}
           ${renderCreatorSignal()}
           ${renderRoadmap()}
           ${renderOperatorConsole(view)}
@@ -693,6 +755,12 @@ app.addEventListener("click", (event) => {
     await state.actor.approve_access_request(nat(button.dataset.requestId));
     await refreshData();
     state.notice = "Admin access granted to requested principal.";
+  });
+  if (action === "reject-access-request") withBusy(async () => {
+    if (!state.operatorAccess) throw new Error("caller is not an admin");
+    await state.actor.reject_access_request(nat(button.dataset.requestId), "Rejected from SovereignDesk operator console.");
+    await refreshData();
+    state.notice = "Access request rejected and recorded in the audit trail.";
   });
   if (action === "seed") withBusy(async () => {
     if (!state.operatorAccess && state.workspaceView) throw new Error("caller is not an admin");

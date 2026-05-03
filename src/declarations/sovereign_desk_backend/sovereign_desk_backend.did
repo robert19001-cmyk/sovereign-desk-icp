@@ -188,6 +188,17 @@ type AgentResponse =
    id: nat;
    scope: text;
  };
+type AccessRequestStatus = 
+ variant {
+   Approved;
+   Pending;
+   Rejected;
+ };
+type AccessRequestReview = 
+ record {
+   request: AccessRequest;
+   status: AccessRequestStatus;
+ };
 type AccessRequest = 
  record {
    createdAt: int;
@@ -214,8 +225,10 @@ service : {
   get_my_workspace: () -> (opt WorkspaceView) query;
   get_public_demo: () -> (opt PublicDemoView) query;
   init_workspace: (name: text, profile: text) -> (Workspace);
+  list_access_request_history: () -> (vec AccessRequestReview) query;
   list_access_requests: () -> (vec AccessRequest) query;
   list_audit: (offset: nat, limit: nat) -> (vec AuditEvent) query;
+  reject_access_request: (requestId: nat, reason: text) -> (AccessRequest);
   request_operator_access: (email: text, note: text) -> (AccessRequest);
   respond_approval: (approvalId: nat, decision: ApprovalStatus, comment:
    text) -> (Approval);

@@ -9,6 +9,13 @@ export interface AccessRequest {
   'createdAt' : bigint,
   'email' : string,
 }
+export interface AccessRequestReview {
+  'status' : AccessRequestStatus,
+  'request' : AccessRequest,
+}
+export type AccessRequestStatus = { 'Approved' : null } |
+  { 'Rejected' : null } |
+  { 'Pending' : null };
 export interface AgentResponse {
   'id' : bigint,
   'createdAt' : bigint,
@@ -188,8 +195,10 @@ export interface _SERVICE {
   'get_my_workspace' : ActorMethod<[], [] | [WorkspaceView]>,
   'get_public_demo' : ActorMethod<[], [] | [PublicDemoView]>,
   'init_workspace' : ActorMethod<[string, string], Workspace>,
+  'list_access_request_history' : ActorMethod<[], Array<AccessRequestReview>>,
   'list_access_requests' : ActorMethod<[], Array<AccessRequest>>,
   'list_audit' : ActorMethod<[bigint, bigint], Array<AuditEvent>>,
+  'reject_access_request' : ActorMethod<[bigint, string], AccessRequest>,
   'request_operator_access' : ActorMethod<[string, string], AccessRequest>,
   'respond_approval' : ActorMethod<[bigint, ApprovalStatus, string], Approval>,
   'seed_demo' : ActorMethod<[], WorkspaceView>,

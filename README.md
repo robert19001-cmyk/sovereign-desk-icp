@@ -70,6 +70,8 @@ Production hardening currently includes:
 - redacted public project/task/approval/document/note/audit fields, so real workspace details are not exposed through the showcase;
 - authenticated access modes for operator, client portal, signed read-only, and public read-only users;
 - on-chain operator access request queue with admin-side approval;
+- Trust Center section with canister IDs, controller, module hashes, dashboard links, and verification command;
+- independent-project disclaimer for DFINITY/Internet Computer branding;
 - tightened asset canister CSP and Permissions-Policy;
 - escaped frontend rendering for canister-provided text;
 - anonymous visitors see read-only proof and login CTAs instead of write buttons;
@@ -122,7 +124,9 @@ The backend exposes:
 - `get_public_demo`
 - `request_operator_access`
 - `list_access_requests`
+- `list_access_request_history`
 - `approve_access_request`
+- `reject_access_request`
 - `create_client`
 - `create_project`
 - `create_task`

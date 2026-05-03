@@ -11,6 +11,7 @@ Most client portals still depend on a conventional app stack: hosted frontend, c
 - Internet Identity gated writes;
 - role-aware client portal reads;
 - on-chain operator access requests;
+- Trust Center with canister IDs, controller, module hashes, and verification command;
 - approval and audit trail primitives;
 - AI Employee readout for operator summaries.
 
@@ -29,6 +30,7 @@ Most client portals still depend on a conventional app stack: hosted frontend, c
 - Signed-in users without roles can request operator access on-chain instead of failing silently.
 - Frontend escapes canister-provided strings before rendering HTML.
 - Asset canister CSP and Permissions-Policy are tightened.
+- The app uses a custom product mark and states that it is independent from DFINITY Foundation.
 
 ## Product Direction
 
