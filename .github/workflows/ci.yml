@@ -43,5 +43,5 @@ jobs:
           grep -q "v7inb-hyaaa-aaaal-qw7aq-cai" README.md
           grep -q "vyjlv-kaaaa-aaaal-qw7aa-cai" README.md
           grep -q "robert19001@gmail.com" README.md
-          grep -q "Private client workrooms" src/sovereign_desk_frontend/src/main.js
-          grep -q "schemaVersion = 2" scripts/product-health.mjs
+          grep -q "A private client workroom" src/sovereign_desk_frontend/src/main.js
+          grep -q "schemaVersion = 3" scripts/product-health.mjs
