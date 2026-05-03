@@ -188,6 +188,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(ClientPortalView)],
         ['query'],
       ),
+    'get_my_client_portals' : IDL.Func(
+        [],
+        [IDL.Vec(ClientPortalView)],
+        ['query'],
+      ),
     'get_my_workspace' : IDL.Func([], [IDL.Opt(WorkspaceView)], ['query']),
     'get_public_demo' : IDL.Func([], [IDL.Opt(PublicDemoView)], ['query']),
     'init_workspace' : IDL.Func([IDL.Text, IDL.Text], [Workspace], []),

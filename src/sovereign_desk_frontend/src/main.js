@@ -19,6 +19,9 @@ const state = {
   actor: null,
   principal: "anonymous",
   isAuthenticated: false,
+  operatorAccess: false,
+  clientPortalAccess: false,
+  accessMode: "public",
   workspaceView: null,
   portalView: null,
   agentResponse: null,
@@ -101,6 +104,36 @@ function currentApproval(view) {
   return view?.approvals?.find((item) => variantName(item.status) === "Pending") || view?.approvals?.[0] || null;
 }
 
+function accessLabel() {
+  if (state.operatorAccess) return "Operator access active";
+  if (state.clientPortalAccess) return "Client portal active";
+  if (state.isAuthenticated) return "Signed read-only";
+  return "Public read-only";
+}
+
+function canRespondApproval() {
+  return state.operatorAccess || state.clientPortalAccess;
+}
+
+function portalToWorkspaceView(portal) {
+  return {
+    workspace: {
+      id: 0n,
+      name: "Client portal",
+      profile: "A role-scoped portal view for the signed Internet Identity.",
+      owner: Principal.fromText(CREATOR.principal),
+      createdAt: 0n,
+    },
+    clients: [portal.client],
+    projects: portal.projects,
+    tasks: portal.tasks,
+    approvals: portal.approvals,
+    documents: portal.documents,
+    notes: portal.notes,
+    audit: [],
+  };
+}
+
 function capabilityList(view) {
   const capabilities = view?.capabilities || [
     "ICP mainnet asset canister",
@@ -131,9 +164,13 @@ function renderProofStrip(view) {
 
 function renderHero(view) {
   const project = currentProject(view);
-  const authenticatedCopy = state.isAuthenticated
-    ? `Authenticated as ${shortPrincipal(state.principal)}`
-    : "Public read-only showcase. Login turns the same canister into an operator console.";
+  const authenticatedCopy = state.operatorAccess
+    ? `Operator access active as ${shortPrincipal(state.principal)}`
+    : state.clientPortalAccess
+      ? `Client portal active as ${shortPrincipal(state.principal)}. Approval responses write to the canister.`
+      : state.isAuthenticated
+      ? `Signed in as ${shortPrincipal(state.principal)}. This principal is not an operator yet, so writes stay locked.`
+      : "Public read-only showcase. Login identifies your principal and unlocks operator tools after admin approval.";
 
   return `
     <section class="hero" aria-labelledby="hero-title">
@@ -162,7 +199,7 @@ function renderHero(view) {
         <dl>
           <div><dt>Frontend</dt><dd>Asset canister</dd></div>
           <div><dt>Backend</dt><dd>${e(shortPrincipal(BACKEND_CANISTER_ID))}</dd></div>
-          <div><dt>Writes</dt><dd>Internet Identity</dd></div>
+          <div><dt>Access</dt><dd>${e(accessLabel())}</dd></div>
           <div><dt>State</dt><dd>Motoko persistent actor</dd></div>
         </dl>
       </div>
@@ -209,7 +246,7 @@ function renderWorkflow(view) {
 
 function renderApprovalCard(view) {
   const approval = currentApproval(view);
-  const locked = !state.isAuthenticated;
+  const locked = !canRespondApproval();
   return `
     <div class="section-heading">
       <span>Client portal</span>
@@ -221,7 +258,7 @@ function renderApprovalCard(view) {
       <p>${e(approval?.body || "Create an approval request to collect a client decision.")}</p>
       <div class="button-row">
         ${locked ? `
-          <button type="button" data-action="login">Login to respond</button>
+          <button type="button" data-action="${state.isAuthenticated ? "copy-principal" : "login"}">${state.isAuthenticated ? "Copy principal" : "Login to respond"}</button>
         ` : `
           <button type="button" data-action="approve" ${approval ? "" : "disabled"}>Approve</button>
           <button type="button" class="secondary" data-action="reject" ${approval ? "" : "disabled"}>Request changes</button>
@@ -248,7 +285,7 @@ function renderAgentAndAudit(view) {
           <h2>Human-approved operating brief</h2>
         </div>
         <p class="agent-copy">${e(state.agentResponse?.answer || "The AI Employee summarizes canister state into client-ready next steps. Write access is restricted to authenticated operators.")}</p>
-        ${state.isAuthenticated ? `
+        ${state.operatorAccess ? `
           <form class="inline-form" data-action="ask-agent">
             <label>
               <span>Prompt</span>
@@ -257,7 +294,7 @@ function renderAgentAndAudit(view) {
             <button type="submit">Ask agent</button>
           </form>
         ` : `
-          <div class="locked-note">Login required for AI writes. Public visitors see the proof of workflow without spending cycles.</div>
+          <div class="locked-note">${state.clientPortalAccess ? "Client portal users can respond to approvals, while AI workspace writes remain operator-only." : state.isAuthenticated ? "Your identity is signed in but has read-only access. Copy the principal from the access panel to enable operator writes." : "Login required for AI writes. Public visitors see the proof of workflow without spending cycles."}</div>
         `}
       </article>
 
@@ -333,7 +370,7 @@ function renderRoadmap() {
 }
 
 function renderOperatorConsole(view) {
-  if (!state.isAuthenticated) {
+  if (!state.operatorAccess) {
     return "";
   }
   const client = currentClient(view);
@@ -384,7 +421,7 @@ function renderOperatorConsole(view) {
 }
 
 function renderPortalDetail(view) {
-  if (!state.isAuthenticated || !view) return "";
+  if ((!state.operatorAccess && !state.clientPortalAccess) || !view) return "";
   const documents = (view.documents || []).map((doc) => `
     <div>
       <strong>${e(doc.name)}</strong>
@@ -409,13 +446,68 @@ function renderPortalDetail(view) {
   `;
 }
 
+function renderAccessPanel() {
+  if (!state.isAuthenticated) {
+    return "";
+  }
+  if (state.clientPortalAccess && !state.operatorAccess) {
+    return `
+      <section class="access-panel client-ready" id="access">
+        <div>
+          <span class="pill live">Client portal</span>
+          <h2>This Internet Identity is linked to a client portal.</h2>
+          <p>You can review portal data and respond to approvals. Operator-only tools stay locked, so client users cannot mutate workspace administration.</p>
+        </div>
+        <div class="principal-box">
+          <span>Your portal principal</span>
+          <code>${e(state.principal)}</code>
+        </div>
+      </section>
+    `;
+  }
+  if (state.operatorAccess) {
+    return `
+      <section class="access-panel operator-ready">
+        <div>
+          <span class="pill live">Operator</span>
+          <h2>Write access is active for this Internet Identity.</h2>
+          <p>Approvals, client records, tasks, notes, and AI work logs can now write directly to the backend canister.</p>
+        </div>
+        <button type="button" data-action="refresh" class="secondary">Refresh canister state</button>
+      </section>
+    `;
+  }
+  const addCommand = `dfx canister call sovereign_desk_backend add_admin '(principal "${state.principal}")' --network ic`;
+  return `
+    <section class="access-panel access-locked" id="access">
+      <div>
+        <span class="pill waiting">Read-only after login</span>
+        <h2>You are signed in, but this principal is not an operator yet.</h2>
+        <p>The app keeps showing the live public demo instead of breaking. To unlock writes, add this Internet Identity principal as an admin from the controller identity.</p>
+      </div>
+      <div class="principal-box">
+        <span>Your Internet Identity principal</span>
+        <code>${e(state.principal)}</code>
+      </div>
+      <div class="command-box">
+        <span>Controller command</span>
+        <code>${e(addCommand)}</code>
+      </div>
+      <div class="button-row">
+        <button type="button" data-action="copy-principal">Copy principal</button>
+        <a class="button secondary" href="mailto:${e(CREATOR.email)}?subject=SovereignDesk%20operator%20access&body=Please%20add%20this%20principal%20as%20an%20operator:%0A${encodeURIComponent(state.principal)}">Email creator</a>
+      </div>
+    </section>
+  `;
+}
+
 function renderEmpty() {
   return `
     <section class="empty-state">
       <span class="canister-mark" aria-hidden="true"></span>
       <h2>No workspace loaded</h2>
-      <p>Login with Internet Identity and seed the first workspace, or inspect the backend canister directly.</p>
-      <button type="button" data-action="login">Login with Internet Identity</button>
+      <p>${state.isAuthenticated ? "This canister is empty. Seed the first workspace to become the owner and open the operator console." : "Login with Internet Identity and seed the first workspace, or inspect the backend canister directly."}</p>
+      <button type="button" data-action="${state.isAuthenticated ? "seed" : "login"}">${state.isAuthenticated ? "Seed first workspace" : "Login with Internet Identity"}</button>
     </section>
   `;
 }
@@ -435,7 +527,7 @@ function render() {
           <a href="#clients">Workspace</a>
           <a href="#agent">AI</a>
           <a href="#architecture">Architecture</a>
-          ${state.isAuthenticated ? '<a href="#operate">Operate</a>' : ""}
+          ${state.operatorAccess ? '<a href="#operate">Operate</a>' : state.isAuthenticated ? '<a href="#access">Access</a>' : ""}
         </nav>
       </header>
 
@@ -445,6 +537,7 @@ function render() {
         ${state.loading ? `<div class="message working">Working with the canister...</div>` : ""}
         ${view ? `
           ${renderHero(view)}
+          ${renderAccessPanel()}
           ${renderProofStrip(view)}
           ${renderWorkflow(view)}
           ${renderAgentAndAudit(view)}
@@ -486,14 +579,37 @@ function humanError(error) {
 }
 
 async function refreshData() {
-  const view = state.isAuthenticated
-    ? await state.actor.get_my_workspace()
-    : await state.actor.get_public_demo();
-  state.workspaceView = view.length ? view[0] : null;
-  if (state.isAuthenticated && state.workspaceView?.clients?.[0]) {
+  state.operatorAccess = false;
+  state.clientPortalAccess = false;
+  state.accessMode = state.isAuthenticated ? "signed-readonly" : "public";
+
+  if (state.isAuthenticated) {
+    const privateView = await state.actor.get_my_workspace();
+    if (privateView.length) {
+      state.workspaceView = privateView[0];
+      state.operatorAccess = true;
+      state.accessMode = "operator";
+    } else {
+      const portals = await state.actor.get_my_client_portals();
+      if (portals.length) {
+        state.portalView = portals[0];
+        state.workspaceView = portalToWorkspaceView(portals[0]);
+        state.clientPortalAccess = true;
+        state.accessMode = "client-portal";
+      } else {
+        const publicView = await state.actor.get_public_demo();
+        state.workspaceView = publicView.length ? publicView[0] : null;
+      }
+    }
+  } else {
+    const publicView = await state.actor.get_public_demo();
+    state.workspaceView = publicView.length ? publicView[0] : null;
+  }
+
+  if (state.operatorAccess && state.workspaceView?.clients?.[0]) {
     const portal = await state.actor.get_client_portal(state.workspaceView.clients[0].id);
     state.portalView = portal.length ? portal[0] : null;
-  } else {
+  } else if (!state.clientPortalAccess) {
     state.portalView = null;
   }
 }
@@ -537,12 +653,18 @@ app.addEventListener("click", (event) => {
   if (action === "login") login();
   if (action === "logout") logout();
   if (action === "refresh") withBusy(refreshData);
+  if (action === "copy-principal") withBusy(async () => {
+    await navigator.clipboard.writeText(state.principal);
+    state.notice = "Principal copied. Add it as an admin from the controller identity to unlock operator tools.";
+  });
   if (action === "seed") withBusy(async () => {
+    if (!state.operatorAccess && state.workspaceView) throw new Error("caller is not an admin");
     state.workspaceView = await state.actor.seed_demo();
     await refreshData();
     state.notice = "Demo workspace seeded in the backend canister.";
   });
   if (action === "approve" || action === "reject") withBusy(async () => {
+    if (!canRespondApproval()) throw new Error("caller is not an admin");
     const approval = currentApproval(state.workspaceView);
     if (!approval) return;
     await state.actor.respond_approval(
@@ -563,6 +685,7 @@ app.addEventListener("submit", (event) => {
   const data = formData(form);
 
   withBusy(async () => {
+    if (!state.operatorAccess) throw new Error("caller is not an admin");
     if (action === "ask-agent") {
       state.agentResponse = await state.actor.ask_agent("project:1", String(data.prompt || "Summarize next steps"));
       state.notice = "AI Employee response written to the backend canister.";

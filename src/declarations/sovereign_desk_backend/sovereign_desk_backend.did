@@ -201,6 +201,7 @@ service : {
   create_project: (clientId: nat, name: text, summary: text) -> (Project);
   create_task: (projectId: nat, title: text, assignee: text) -> (Task);
   get_client_portal: (clientId: nat) -> (opt ClientPortalView) query;
+  get_my_client_portals: () -> (vec ClientPortalView) query;
   get_my_workspace: () -> (opt WorkspaceView) query;
   get_public_demo: () -> (opt PublicDemoView) query;
   init_workspace: (name: text, profile: text) -> (Workspace);

@@ -712,6 +712,29 @@ persistent actor {
     }
   };
 
+  public shared query ({ caller }) func get_my_client_portals() : async [ClientPortalView] {
+    requireAuthenticated(caller);
+    let accessibleClients = Array.filter<Client>(clients, func(client) { canAccessClient(caller, client) });
+    Array.map<Client, ClientPortalView>(
+      accessibleClients,
+      func(client) {
+        let clientProjects = Array.filter<Project>(projects, func(project) { project.clientId == client.id });
+        let projectIds = Array.map<Project, Nat>(clientProjects, func(project) { project.id });
+        func inProject(projectId : Nat) : Bool {
+          Array.find<Nat>(projectIds, func(id) { id == projectId }) != null
+        };
+        {
+          client;
+          projects = clientProjects;
+          tasks = Array.filter<Task>(tasks, func(task) { inProject(task.projectId) });
+          approvals = Array.filter<Approval>(approvals, func(approval) { inProject(approval.projectId) });
+          documents = Array.filter<DocumentRecord>(documents, func(document) { inProject(document.projectId) });
+          notes = Array.filter<Note>(notes, func(note) { inProject(note.projectId) });
+        }
+      },
+    )
+  };
+
   public shared ({ caller }) func ask_agent(scope : Text, prompt : Text) : async AgentResponse {
     requireAdmin(caller);
     requireText("agent scope", scope, 120);

@@ -176,6 +176,7 @@ export interface _SERVICE {
   'create_project' : ActorMethod<[bigint, string, string], Project>,
   'create_task' : ActorMethod<[bigint, string, string], Task>,
   'get_client_portal' : ActorMethod<[bigint], [] | [ClientPortalView]>,
+  'get_my_client_portals' : ActorMethod<[], Array<ClientPortalView>>,
   'get_my_workspace' : ActorMethod<[], [] | [WorkspaceView]>,
   'get_public_demo' : ActorMethod<[], [] | [PublicDemoView]>,
   'init_workspace' : ActorMethod<[string, string], Workspace>,
