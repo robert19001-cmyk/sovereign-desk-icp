@@ -20,7 +20,7 @@ async function check(viewport, label) {
   const result = await page.evaluate(() => ({
     title: document.querySelector("h1")?.innerText,
     hasCreatorEmail: document.body.innerText.includes("robert19001@gmail.com"),
-    hasClient: document.body.innerText.includes("Northstar Legal"),
+    hasClient: document.body.innerText.includes("Demo client"),
     hasPIIEmail: document.body.innerText.includes("marta@example.com"),
     scrollW: document.documentElement.scrollWidth,
     innerW: innerWidth,

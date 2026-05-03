@@ -166,6 +166,13 @@ export const idlFactory = ({ IDL }) => {
     'approvals' : IDL.Vec(PublicApproval),
     'clients' : IDL.Vec(PublicClient),
   });
+  const AccessRequest = IDL.Record({
+    'id' : IDL.Nat,
+    'principal' : IDL.Principal,
+    'note' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'email' : IDL.Text,
+  });
   return IDL.Service({
     'add_admin' : IDL.Func([IDL.Principal], [IDL.Vec(IDL.Principal)], []),
     'append_note' : IDL.Func([IDL.Nat, IDL.Text], [Note], []),
@@ -196,10 +203,16 @@ export const idlFactory = ({ IDL }) => {
     'get_my_workspace' : IDL.Func([], [IDL.Opt(WorkspaceView)], ['query']),
     'get_public_demo' : IDL.Func([], [IDL.Opt(PublicDemoView)], ['query']),
     'init_workspace' : IDL.Func([IDL.Text, IDL.Text], [Workspace], []),
+    'list_access_requests' : IDL.Func([], [IDL.Vec(AccessRequest)], ['query']),
     'list_audit' : IDL.Func(
         [IDL.Nat, IDL.Nat],
         [IDL.Vec(AuditEvent)],
         ['query'],
+      ),
+    'request_operator_access' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [AccessRequest],
+        [],
       ),
     'respond_approval' : IDL.Func(
         [IDL.Nat, ApprovalStatus, IDL.Text],

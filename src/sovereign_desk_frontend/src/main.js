@@ -24,6 +24,7 @@ const state = {
   accessMode: "public",
   workspaceView: null,
   portalView: null,
+  accessRequests: [],
   agentResponse: null,
   loading: false,
   error: "",
@@ -68,6 +69,10 @@ function shortPrincipal(value) {
 
 function natText(value) {
   return typeof value === "bigint" ? value.toString() : String(value ?? "0");
+}
+
+function principalText(value) {
+  return value?.toText ? value.toText() : String(value || "");
 }
 
 function statusClass(status) {
@@ -375,6 +380,19 @@ function renderOperatorConsole(view) {
   }
   const client = currentClient(view);
   const project = currentProject(view);
+  const requests = (state.accessRequests || []).map((request) => {
+    const principal = principalText(request.principal);
+    return `
+      <li>
+        <div>
+          <strong>${e(request.email)}</strong>
+          <span>${e(request.note)}</span>
+          <code>${e(principal)}</code>
+        </div>
+        <button type="button" data-action="grant-access" data-principal="${e(principal)}">Grant admin</button>
+      </li>
+    `;
+  }).join("");
 
   return `
     <section id="operate" class="operator-console">
@@ -382,6 +400,13 @@ function renderOperatorConsole(view) {
         <span>Operator console</span>
         <h2>Write real state to the canister</h2>
       </div>
+      <article class="surface access-queue">
+        <div class="section-heading">
+          <span>Access queue</span>
+          <h3>On-chain operator requests</h3>
+        </div>
+        <ul>${requests || "<li><div><strong>No pending requests</strong><span>Signed-in visitors can request operator review from the access panel.</span></div></li>"}</ul>
+      </article>
       <div class="console-grid">
         <form class="surface form-surface" data-action="create-client">
           <h3>Create client</h3>
@@ -497,6 +522,11 @@ function renderAccessPanel() {
         <button type="button" data-action="copy-principal">Copy principal</button>
         <a class="button secondary" href="mailto:${e(CREATOR.email)}?subject=SovereignDesk%20operator%20access&body=Please%20add%20this%20principal%20as%20an%20operator:%0A${encodeURIComponent(state.principal)}">Email creator</a>
       </div>
+      <form class="request-access-form" data-action="request-access">
+        <label><span>Contact email</span><input name="email" placeholder="you@example.com" maxlength="180" required /></label>
+        <label><span>Request note</span><textarea name="note" maxlength="500" required>Please review this Internet Identity principal for SovereignDesk operator access.</textarea></label>
+        <button type="submit">Request access on-chain</button>
+      </form>
     </section>
   `;
 }
@@ -589,6 +619,7 @@ async function refreshData() {
       state.workspaceView = privateView[0];
       state.operatorAccess = true;
       state.accessMode = "operator";
+      state.accessRequests = await state.actor.list_access_requests();
     } else {
       const portals = await state.actor.get_my_client_portals();
       if (portals.length) {
@@ -657,6 +688,12 @@ app.addEventListener("click", (event) => {
     await navigator.clipboard.writeText(state.principal);
     state.notice = "Principal copied. Add it as an admin from the controller identity to unlock operator tools.";
   });
+  if (action === "grant-access") withBusy(async () => {
+    if (!state.operatorAccess) throw new Error("caller is not an admin");
+    await state.actor.add_admin(Principal.fromText(button.dataset.principal));
+    await refreshData();
+    state.notice = "Admin access granted to requested principal.";
+  });
   if (action === "seed") withBusy(async () => {
     if (!state.operatorAccess && state.workspaceView) throw new Error("caller is not an admin");
     state.workspaceView = await state.actor.seed_demo();
@@ -685,6 +722,12 @@ app.addEventListener("submit", (event) => {
   const data = formData(form);
 
   withBusy(async () => {
+    if (action === "request-access") {
+      await state.actor.request_operator_access(String(data.email || ""), String(data.note || ""));
+      state.notice = "Access request written to the backend canister. The operator can review it in the on-chain queue.";
+      await refreshData();
+      return;
+    }
     if (!state.operatorAccess) throw new Error("caller is not an admin");
     if (action === "ask-agent") {
       state.agentResponse = await state.actor.ask_agent("project:1", String(data.prompt || "Summarize next steps"));

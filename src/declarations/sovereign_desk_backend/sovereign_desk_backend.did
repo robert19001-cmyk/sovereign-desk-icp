@@ -188,6 +188,14 @@ type AgentResponse =
    id: nat;
    scope: text;
  };
+type AccessRequest = 
+ record {
+   createdAt: int;
+   email: text;
+   id: nat;
+   note: text;
+   "principal": principal;
+ };
 service : {
   add_admin: ("principal": principal) -> (vec principal);
   append_note: (projectId: nat, body: text) -> (Note);
@@ -205,7 +213,9 @@ service : {
   get_my_workspace: () -> (opt WorkspaceView) query;
   get_public_demo: () -> (opt PublicDemoView) query;
   init_workspace: (name: text, profile: text) -> (Workspace);
+  list_access_requests: () -> (vec AccessRequest) query;
   list_audit: (offset: nat, limit: nat) -> (vec AuditEvent) query;
+  request_operator_access: (email: text, note: text) -> (AccessRequest);
   respond_approval: (approvalId: nat, decision: ApprovalStatus, comment:
    text) -> (Approval);
   seed_demo: () -> (WorkspaceView);

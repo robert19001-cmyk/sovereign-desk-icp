@@ -2,6 +2,13 @@ import type { Principal } from '@icp-sdk/core/principal';
 import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 
+export interface AccessRequest {
+  'id' : bigint,
+  'principal' : Principal,
+  'note' : string,
+  'createdAt' : bigint,
+  'email' : string,
+}
 export interface AgentResponse {
   'id' : bigint,
   'createdAt' : bigint,
@@ -180,7 +187,9 @@ export interface _SERVICE {
   'get_my_workspace' : ActorMethod<[], [] | [WorkspaceView]>,
   'get_public_demo' : ActorMethod<[], [] | [PublicDemoView]>,
   'init_workspace' : ActorMethod<[string, string], Workspace>,
+  'list_access_requests' : ActorMethod<[], Array<AccessRequest>>,
   'list_audit' : ActorMethod<[bigint, bigint], Array<AuditEvent>>,
+  'request_operator_access' : ActorMethod<[string, string], AccessRequest>,
   'respond_approval' : ActorMethod<[bigint, ApprovalStatus, string], Approval>,
   'seed_demo' : ActorMethod<[], WorkspaceView>,
   'update_project_status' : ActorMethod<[bigint, ProjectStatus], Project>,

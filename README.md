@@ -67,6 +67,9 @@ https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=vyjlv-kaaaa-aaaal-qw7aa-cai
 Production hardening currently includes:
 
 - public showcase endpoint without contact email, portal principal, owner principal, or raw actor principals;
+- redacted public project/task/approval/document/note/audit fields, so real workspace details are not exposed through the showcase;
+- authenticated access modes for operator, client portal, signed read-only, and public read-only users;
+- on-chain operator access request queue with admin-side approval;
 - tightened asset canister CSP and Permissions-Policy;
 - escaped frontend rendering for canister-provided text;
 - anonymous visitors see read-only proof and login CTAs instead of write buttons;
@@ -117,6 +120,8 @@ The backend exposes:
 - `init_workspace`
 - `get_my_workspace`
 - `get_public_demo`
+- `request_operator_access`
+- `list_access_requests`
 - `create_client`
 - `create_project`
 - `create_task`
@@ -135,6 +140,7 @@ The backend exposes:
 
 - Move controller identity from plaintext dev identity to a hardware-backed or passphrase-protected controller.
 - Add a principal onboarding flow for the owner's real Internet Identity.
+- Add request status lifecycle: pending, approved, rejected, archived.
 - Split vault and agent into separate canisters once the core workflow is stable.
 - Add vetKeys for client-side encrypted document keys.
 - Add proper file upload and certified document retrieval.

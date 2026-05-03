@@ -114,6 +114,14 @@ persistent actor {
     createdAt : Int;
   };
 
+  public type AccessRequest = {
+    id : Nat;
+    principal : Principal;
+    email : Text;
+    note : Text;
+    createdAt : Int;
+  };
+
   public type PublicWorkspace = {
     name : Text;
     profile : Text;
@@ -193,6 +201,7 @@ persistent actor {
   var notes : [Note] = [];
   var audit : [AuditEvent] = [];
   var agentResponses : [AgentResponse] = [];
+  var accessRequests : [AccessRequest] = [];
 
   var nextWorkspaceId : Nat = 1;
   var nextClientId : Nat = 1;
@@ -203,6 +212,7 @@ persistent actor {
   var nextNoteId : Nat = 1;
   var nextAuditId : Nat = 1;
   var nextAgentResponseId : Nat = 1;
+  var nextAccessRequestId : Nat = 1;
 
   func now() : Int {
     Time.now()
@@ -308,6 +318,33 @@ persistent actor {
     admins
   };
 
+  public shared ({ caller }) func request_operator_access(email : Text, note : Text) : async AccessRequest {
+    requireAuthenticated(caller);
+    requireText("request email", email, 180);
+    requireText("request note", note, 500);
+    switch (Array.find<AccessRequest>(accessRequests, func(request) { request.principal == caller })) {
+      case (?existing) { existing };
+      case null {
+        let request : AccessRequest = {
+          id = nextAccessRequestId;
+          principal = caller;
+          email;
+          note;
+          createdAt = now();
+        };
+        nextAccessRequestId += 1;
+        accessRequests := Array.append(accessRequests, [request]);
+        addAudit(caller, "access.requested", "principal:" # Principal.toText(caller), email);
+        request
+      };
+    }
+  };
+
+  public shared query ({ caller }) func list_access_requests() : async [AccessRequest] {
+    requireAdmin(caller);
+    accessRequests
+  };
+
   public shared query ({ caller }) func get_my_workspace() : async ?WorkspaceView {
     if (Principal.isAnonymous(caller) or not isAdmin(caller)) {
       return null;
@@ -342,8 +379,8 @@ persistent actor {
             clients,
             func(client) {
               {
-                name = client.name;
-                contactName = client.contactName;
+                name = "Demo client " # Nat.toText(client.id);
+                contactName = "Public preview";
               }
             },
           );
@@ -353,8 +390,8 @@ persistent actor {
               {
                 id = project.id;
                 clientId = project.clientId;
-                name = project.name;
-                summary = project.summary;
+                name = "Canister diligence room " # Nat.toText(project.id);
+                summary = "Public redacted workflow preview. Authenticated roles see project details.";
                 status = project.status;
               }
             },
@@ -365,8 +402,8 @@ persistent actor {
               {
                 id = task.id;
                 projectId = task.projectId;
-                title = task.title;
-                assignee = task.assignee;
+                title = "Redacted workflow task " # Nat.toText(task.id);
+                assignee = "role scoped";
                 status = task.status;
               }
             },
@@ -377,8 +414,8 @@ persistent actor {
               {
                 id = approval.id;
                 projectId = approval.projectId;
-                title = approval.title;
-                body = approval.body;
+                title = "Redacted approval gate " # Nat.toText(approval.id);
+                body = "Public preview only. Authenticated portal users see approval details.";
                 status = approval.status;
               }
             },
@@ -389,10 +426,10 @@ persistent actor {
               {
                 id = document.id;
                 projectId = document.projectId;
-                name = document.name;
+                name = "certified-document-" # Nat.toText(document.id);
                 mimeType = document.mimeType;
                 sizeBytes = document.sizeBytes;
-                contentHash = document.contentHash;
+                contentHash = "redacted";
               }
             },
           );
@@ -402,7 +439,7 @@ persistent actor {
               {
                 id = note.id;
                 projectId = note.projectId;
-                body = note.body;
+                body = "Public note redacted. Authenticated portal users see note details.";
               }
             },
           );
@@ -412,8 +449,8 @@ persistent actor {
               {
                 id = event.id;
                 action = event.action;
-                target = event.target;
-                summary = event.summary;
+                target = "redacted";
+                summary = "Public audit event redacted";
               }
             },
           );
