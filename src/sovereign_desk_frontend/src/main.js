@@ -220,6 +220,25 @@ function renderHero(view) {
   `;
 }
 
+function renderReviewRail() {
+  const items = [
+    ["Mainnet", "Frontend and backend are deployed as ICP canisters."],
+    ["Redacted public demo", "Visitors can inspect the workflow without exposing private workspace data."],
+    ["Internet Identity", "Writes are gated by role-aware principals, not a centralized auth server."],
+    ["Trust Center", "Canister IDs, module hashes, controller, and verification path are visible in-app."],
+  ];
+  return `
+    <section class="review-rail" aria-label="Reviewer highlights">
+      ${items.map(([title, body]) => `
+        <article>
+          <span>${e(title)}</span>
+          <p>${e(body)}</p>
+        </article>
+      `).join("")}
+    </section>
+  `;
+}
+
 function renderWorkflow(view) {
   const client = currentClient(view);
   const project = currentProject(view);
@@ -628,6 +647,7 @@ function render() {
         ${state.loading ? `<div class="message working">Working with the canister...</div>` : ""}
         ${view ? `
           ${renderHero(view)}
+          ${renderReviewRail()}
           ${renderAccessPanel()}
           ${renderProofStrip(view)}
           ${renderWorkflow(view)}

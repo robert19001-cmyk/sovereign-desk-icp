@@ -19,6 +19,9 @@
   --radius: 8px;
   --radius-sm: 6px;
   --gradient-icp: linear-gradient(120deg, #ff8a00 0%, #f15bb5 32%, #6b46ff 62%, #1589ff 100%);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-fast: 160ms;
+  --motion-base: 420ms;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -57,7 +60,14 @@ button, .button {
   text-decoration: none;
   font-weight: 720;
   letter-spacing: 0;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform var(--motion-fast) var(--ease),
+    box-shadow var(--motion-fast) var(--ease),
+    border-color var(--motion-fast) var(--ease),
+    background var(--motion-fast) var(--ease),
+    color var(--motion-fast) var(--ease);
 }
 
 button:hover, .button:hover {
@@ -90,6 +100,10 @@ input, textarea {
   background: #fff;
   color: var(--ink);
   padding: 0.72rem 0.85rem;
+  transition:
+    border-color var(--motion-fast) var(--ease),
+    box-shadow var(--motion-fast) var(--ease),
+    background var(--motion-fast) var(--ease);
 }
 
 textarea {
@@ -111,6 +125,11 @@ label span {
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
   outline: 3px solid rgba(21, 137, 255, 0.28);
   outline-offset: 3px;
+}
+
+input:focus, textarea:focus {
+  border-color: rgba(21, 137, 255, 0.7);
+  box-shadow: 0 0 0 4px rgba(21, 137, 255, 0.1);
 }
 
 .skip-link {
@@ -172,11 +191,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   padding: 0.5rem 0.72rem;
   border-radius: 999px;
   font-size: 0.92rem;
+  transition:
+    color var(--motion-fast) var(--ease),
+    background var(--motion-fast) var(--ease),
+    transform var(--motion-fast) var(--ease);
 }
 
 .top-nav nav a:hover {
   background: var(--paper-2);
   color: var(--ink);
+  transform: translateY(-1px);
 }
 
 main {
@@ -357,6 +381,11 @@ h3 {
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--shadow-soft);
+  transition:
+    transform var(--motion-fast) var(--ease),
+    box-shadow var(--motion-fast) var(--ease),
+    border-color var(--motion-fast) var(--ease),
+    background var(--motion-fast) var(--ease);
 }
 
 .signal-panel dl div {
@@ -382,6 +411,42 @@ dd {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.9rem;
   margin-bottom: 1rem;
+}
+
+.review-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin: -1.2rem 0 1rem;
+}
+
+.review-rail article {
+  min-width: 0;
+  padding: 0.95rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.58)),
+    linear-gradient(120deg, rgba(255, 138, 0, 0.11), rgba(241, 91, 181, 0.08), rgba(21, 137, 255, 0.1));
+  box-shadow: var(--shadow-soft);
+  transition:
+    transform var(--motion-fast) var(--ease),
+    box-shadow var(--motion-fast) var(--ease),
+    border-color var(--motion-fast) var(--ease);
+}
+
+.review-rail span {
+  display: block;
+  color: var(--ink);
+  font-weight: 860;
+  margin-bottom: 0.35rem;
+}
+
+.review-rail p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.92rem;
 }
 
 .metric {
@@ -941,7 +1006,7 @@ dd {
     min-height: 420px;
   }
 
-  .proof-strip, .architecture ul, .roadmap ol, .trust-grid {
+  .proof-strip, .review-rail, .architecture ul, .roadmap ol, .trust-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -969,7 +1034,7 @@ dd {
     font-size: clamp(2.6rem, 16vw, 4.2rem);
   }
 
-  .proof-strip, .architecture ul, .signal-panel dl, .portal-grid, .roadmap ol, .trust-grid {
+  .proof-strip, .review-rail, .architecture ul, .signal-panel dl, .portal-grid, .roadmap ol, .trust-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1001,13 +1066,31 @@ dd {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .hero-copy, .signal-panel, .proof-strip, .surface, .architecture, .access-panel, .trust-center {
+  .hero-copy, .signal-panel, .review-rail, .proof-strip, .surface, .architecture, .access-panel, .trust-center {
     animation: rise 520ms ease both;
   }
 
   .signal-panel {
     animation-delay: 80ms;
   }
+
+  .review-rail article {
+    animation: rise var(--motion-base) var(--ease) both;
+  }
+
+  .review-rail article:nth-child(1) { animation-delay: 70ms; }
+  .review-rail article:nth-child(2) { animation-delay: 120ms; }
+  .review-rail article:nth-child(3) { animation-delay: 170ms; }
+  .review-rail article:nth-child(4) { animation-delay: 220ms; }
+
+  .metric {
+    animation: rise var(--motion-base) var(--ease) both;
+  }
+
+  .metric:nth-child(1) { animation-delay: 90ms; }
+  .metric:nth-child(2) { animation-delay: 130ms; }
+  .metric:nth-child(3) { animation-delay: 170ms; }
+  .metric:nth-child(4) { animation-delay: 210ms; }
 
   .signal-orbit span {
     animation: float-node 5.8s ease-in-out infinite;
@@ -1025,10 +1108,9 @@ dd {
     animation-delay: -3.6s;
   }
 
-  .metric:hover, .surface:hover, .architecture li:hover, .roadmap li:hover, .trust-grid article:hover {
+  .metric:hover, .surface:hover, .architecture li:hover, .roadmap li:hover, .trust-grid article:hover, .review-rail article:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow);
-    transition: transform 180ms ease, box-shadow 180ms ease;
   }
 
   @keyframes rise {
