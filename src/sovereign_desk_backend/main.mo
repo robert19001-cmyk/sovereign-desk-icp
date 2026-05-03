@@ -345,6 +345,20 @@ persistent actor {
     accessRequests
   };
 
+  public shared ({ caller }) func approve_access_request(requestId : Nat) : async [Principal] {
+    requireAdmin(caller);
+    switch (Array.find<AccessRequest>(accessRequests, func(request) { request.id == requestId })) {
+      case (?request) {
+        if (Array.find<Principal>(admins, func(p) { p == request.principal }) == null) {
+          admins := Array.append(admins, [request.principal]);
+        };
+        addAudit(caller, "access.approved", "access-request:" # Nat.toText(request.id), request.email);
+        admins
+      };
+      case null { Debug.trap("access request not found") };
+    }
+  };
+
   public shared query ({ caller }) func get_my_workspace() : async ?WorkspaceView {
     if (Principal.isAnonymous(caller) or not isAdmin(caller)) {
       return null;

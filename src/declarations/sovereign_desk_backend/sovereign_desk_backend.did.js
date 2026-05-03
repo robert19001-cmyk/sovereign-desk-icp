@@ -176,6 +176,11 @@ export const idlFactory = ({ IDL }) => {
   return IDL.Service({
     'add_admin' : IDL.Func([IDL.Principal], [IDL.Vec(IDL.Principal)], []),
     'append_note' : IDL.Func([IDL.Nat, IDL.Text], [Note], []),
+    'approve_access_request' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Vec(IDL.Principal)],
+        [],
+      ),
     'ask_agent' : IDL.Func([IDL.Text, IDL.Text], [AgentResponse], []),
     'create_approval' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [Approval], []),
     'create_client' : IDL.Func(

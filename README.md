@@ -122,6 +122,7 @@ The backend exposes:
 - `get_public_demo`
 - `request_operator_access`
 - `list_access_requests`
+- `approve_access_request`
 - `create_client`
 - `create_project`
 - `create_task`

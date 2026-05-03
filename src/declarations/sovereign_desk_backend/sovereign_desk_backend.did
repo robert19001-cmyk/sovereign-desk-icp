@@ -199,6 +199,7 @@ type AccessRequest =
 service : {
   add_admin: ("principal": principal) -> (vec principal);
   append_note: (projectId: nat, body: text) -> (Note);
+  approve_access_request: (requestId: nat) -> (vec principal);
   ask_agent: (scope: text, prompt: text) -> (AgentResponse);
   create_approval: (projectId: nat, title: text, body: text) -> (Approval);
   create_client: (name: text, contactName: text, contactEmail: text,

@@ -389,7 +389,7 @@ function renderOperatorConsole(view) {
           <span>${e(request.note)}</span>
           <code>${e(principal)}</code>
         </div>
-        <button type="button" data-action="grant-access" data-principal="${e(principal)}">Grant admin</button>
+        <button type="button" data-action="approve-access-request" data-request-id="${e(natText(request.id))}" data-principal="${e(principal)}">Grant admin</button>
       </li>
     `;
   }).join("");
@@ -688,9 +688,9 @@ app.addEventListener("click", (event) => {
     await navigator.clipboard.writeText(state.principal);
     state.notice = "Principal copied. Add it as an admin from the controller identity to unlock operator tools.";
   });
-  if (action === "grant-access") withBusy(async () => {
+  if (action === "approve-access-request") withBusy(async () => {
     if (!state.operatorAccess) throw new Error("caller is not an admin");
-    await state.actor.add_admin(Principal.fromText(button.dataset.principal));
+    await state.actor.approve_access_request(nat(button.dataset.requestId));
     await refreshData();
     state.notice = "Admin access granted to requested principal.";
   });

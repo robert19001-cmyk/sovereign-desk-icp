@@ -170,6 +170,7 @@ export interface WorkspaceView {
 export interface _SERVICE {
   'add_admin' : ActorMethod<[Principal], Array<Principal>>,
   'append_note' : ActorMethod<[bigint, string], Note>,
+  'approve_access_request' : ActorMethod<[bigint], Array<Principal>>,
   'ask_agent' : ActorMethod<[string, string], AgentResponse>,
   'create_approval' : ActorMethod<[bigint, string, string], Approval>,
   'create_client' : ActorMethod<
