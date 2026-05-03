@@ -79,6 +79,9 @@ The application is deployed on ICP mainnet.
 ```text
 frontend: v7inb-hyaaa-aaaal-qw7aq-cai
 backend:  vyjlv-kaaaa-aaaal-qw7aa-cai
+vault:    venre-5aaaa-aaaal-qw7ca-cai
+audit:    vdmxq-qyaaa-aaaal-qw7cq-cai
+agent:    vkp4m-gqaaa-aaaal-qw7da-cai
 owner:    up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe
 ```
 
@@ -112,6 +115,7 @@ Current mainnet MVP hardening includes:
 - client invite codes for self-service Internet Identity portal claiming;
 - Document Vault v2 with document versions, archive records, and client-side SHA-256 verification evidence;
 - encrypted vault objects: browser-side AES-GCM encryption, ciphertext-only canister storage, and vetKeys-ready derivation context;
+- split vault, audit, and agent canisters deployed on mainnet with the protected controller;
 - governance proposal ledger for multisig/SNS/Launchtrail migration decisions;
 - update endpoints for client, project, task, document metadata, and notes;
 - approval final-state protection and backend-side document hash validation;
@@ -253,7 +257,7 @@ The backend exposes:
 
 - Move controller governance from protected single identity to multisig, SNS, Launchtrail, or equivalent.
 - Add request status lifecycle UX: pending, approved, rejected, archived.
-- Split vault, audit/proof, and agent into separate canisters once the core workflow is stable.
+- Route frontend/backend workflows to the deployed split vault, audit/proof, and agent canisters.
 - Replace passphrase-derived vault demo keys with vetKeys-backed key release.
 - Add proper file upload and certified document retrieval.
 - Add automated E2E tests for authenticated Internet Identity flows.

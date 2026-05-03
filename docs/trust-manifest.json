@@ -1,20 +1,27 @@
 {
   "appName": "SovereignDesk AI",
-  "release": "v0.5.0",
+  "release": "v0.6.1",
   "network": "ic",
   "frontendCanister": "v7inb-hyaaa-aaaal-qw7aq-cai",
   "backendCanister": "vyjlv-kaaaa-aaaal-qw7aa-cai",
+  "vaultCanister": "venre-5aaaa-aaaal-qw7ca-cai",
+  "auditCanister": "vdmxq-qyaaa-aaaal-qw7cq-cai",
+  "agentCanister": "vkp4m-gqaaa-aaaal-qw7da-cai",
   "controller": "7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae",
   "schemaVersion": 5,
   "backendModuleHash": "0xd32ca3c209b2ae9417f2de4f40f3528ed3712070228f23f02a2b7a8d80221fa8",
   "frontendModuleHash": "0x04e565b3425fe7510ee16b02adcfe3f01abc9a2725c82a21cb08969241debd62",
+  "vaultModuleHash": "0x08769137ce21c7db11212213fe05ed838299034383b0a2ada6a9e31bba20660c",
+  "auditModuleHash": "0xaa47af5bfc40b6986ce80774eb6e226157e1b8ab827bf0ea5f19d7803b6543ce",
+  "agentModuleHash": "0x1fd09730239dd7ece5d9e7b1da271618429f062904904dcc61b48c3970e5435e",
   "liveUrl": "https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/",
   "candidUrl": "https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=vyjlv-kaaaa-aaaal-qw7aa-cai",
   "source": "https://github.com/robert19001-cmyk/sovereign-desk-icp",
-  "releaseUrl": "https://github.com/robert19001-cmyk/sovereign-desk-icp/releases/tag/v0.5.0",
+  "releaseUrl": "https://github.com/robert19001-cmyk/sovereign-desk-icp/releases/tag/v0.6.1",
   "proofs": [
     "GitHub Actions CI is green on main",
     "npm run qa:product validates canister IDs, module hashes, schema version, and controller",
-    "npm run qa:mainnet validates public redaction and responsive render"
+    "npm run qa:mainnet validates public redaction and responsive render",
+    "Split vault, audit, and agent canisters are deployed, controller-hardened, and smoke-tested on mainnet"
   ]
 }

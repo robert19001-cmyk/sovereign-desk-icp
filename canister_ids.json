@@ -1,8 +1,17 @@
 {
+  "sovereign_desk_agent": {
+    "ic": "vkp4m-gqaaa-aaaal-qw7da-cai"
+  },
+  "sovereign_desk_audit": {
+    "ic": "vdmxq-qyaaa-aaaal-qw7cq-cai"
+  },
   "sovereign_desk_backend": {
     "ic": "vyjlv-kaaaa-aaaal-qw7aa-cai"
   },
   "sovereign_desk_frontend": {
     "ic": "v7inb-hyaaa-aaaal-qw7aq-cai"
+  },
+  "sovereign_desk_vault": {
+    "ic": "venre-5aaaa-aaaal-qw7ca-cai"
   }
 }
