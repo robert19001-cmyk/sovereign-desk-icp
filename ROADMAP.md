@@ -4,7 +4,7 @@ SovereignDesk AI is moving from a public canister-native mainnet MVP toward a pr
 
 ## Phase 1: Trust and Launch Readiness
 
-- Move controller from plaintext development identity to a protected controller.
+- Keep protected controller live and document the migration away from plaintext development identity.
 - Publish source on GitHub with CI, security policy, reproducible build notes, selected release screenshots, and release gates.
 - Keep Trust Center visible in the public app.
 - Add CI checks for frontend build and source hygiene.
@@ -23,7 +23,7 @@ SovereignDesk AI is moving from a public canister-native mainnet MVP toward a pr
 
 ## Phase 3: Data and Documents
 
-- Add certified document metadata.
+- Extend Document Vault v1 with certified document metadata.
 - Add file upload flow through asset or storage canister design.
 - Add client-side encryption and vetKeys for document keys.
 - Separate public demo state from real workspace state.

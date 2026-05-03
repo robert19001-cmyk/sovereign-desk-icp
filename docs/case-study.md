@@ -13,6 +13,7 @@ Most client portals still depend on a conventional app stack: hosted frontend, c
 - on-chain operator access requests;
 - Trust Center with canister IDs, controller, module hashes, and verification command;
 - approval and audit trail primitives;
+- Document Vault v1 with version metadata and client-side hash verification evidence;
 - AI Employee readout for operator summaries.
 
 ## Live Deployment
@@ -20,7 +21,7 @@ Most client portals still depend on a conventional app stack: hosted frontend, c
 - App: https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/
 - Backend: `vyjlv-kaaaa-aaaal-qw7aa-cai`
 - Frontend: `v7inb-hyaaa-aaaal-qw7aq-cai`
-- Controller principal: `up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe`
+- Controller principal: `7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae`
 
 ## Security Decisions
 
@@ -36,11 +37,11 @@ Most client portals still depend on a conventional app stack: hosted frontend, c
 
 The next product milestone is not another landing page. It is a controlled workflow:
 
-1. Move controller rights to a hardware-backed or passphrase-protected identity.
+1. Move controller governance from protected single identity to multisig, SNS, Launchtrail, or equivalent.
 2. Add owner onboarding for the real Internet Identity principal.
 3. Add access request status lifecycle and notifications.
 4. Harden client invite and portal-principal assignment with expiry and notification hooks.
-5. Add certified document upload metadata and encrypted key handling.
+5. Add vetKeys-backed encrypted key handling for the vault.
 6. Split the AI Employee into a dedicated canister with explicit human approval.
 7. Add ckBTC/ckUSDC invoice approvals after the client workflow is stable.
 

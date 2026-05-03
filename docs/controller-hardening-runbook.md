@@ -1,14 +1,14 @@
 # Controller Hardening Runbook
 
-Status: required before real production client data, secrets, user funds, or regulated workloads.
+Status: completed for the current mainnet MVP. Move to multisig, SNS, Launchtrail, or equivalent before valuable production data, secrets, user funds, or regulated workloads.
 
-The current mainnet MVP is controlled by a development principal:
+The current mainnet MVP is controlled by the protected `sovereign-controller` principal:
 
 ```text
-up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe
+7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae
 ```
 
-This is acceptable for a public technical MVP only. Production control must move to a protected identity or governance setup before valuable state is stored.
+The plaintext development identity is no longer a canister controller. Production control should still move to team-grade governance before valuable state is stored.
 
 ## Target Controller Model
 
@@ -19,7 +19,7 @@ Choose one controller model before production:
 - Multisig or Launchtrail for team-operated production.
 - SNS or equivalent governance when ownership should be public or community-governed.
 
-Do not leave a plaintext development identity as the only controller for production canisters.
+Do not leave a single-person controller as the final production governance model.
 
 ## Pre-Migration Checks
 
@@ -36,8 +36,8 @@ npm run qa:upgrade
 As maintainer, verify current mainnet status:
 
 ```bash
-DFX_WARNING=-mainnet_plaintext_identity dfx canister status --network ic sovereign_desk_backend
-DFX_WARNING=-mainnet_plaintext_identity dfx canister status --network ic sovereign_desk_frontend
+dfx --identity sovereign-controller canister status --network ic sovereign_desk_backend
+dfx --identity sovereign-controller canister status --network ic sovereign_desk_frontend
 npm run qa:mainnet
 npm run qa:product
 ```

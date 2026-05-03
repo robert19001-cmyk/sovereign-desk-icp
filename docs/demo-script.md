@@ -108,10 +108,10 @@ npm run qa:product
 Mainnet status:
 
 ```bash
-DFX_WARNING=-mainnet_plaintext_identity dfx canister status --network ic sovereign_desk_backend
-DFX_WARNING=-mainnet_plaintext_identity dfx canister status --network ic sovereign_desk_frontend
+dfx --identity sovereign-controller canister status --network ic sovereign_desk_backend
+dfx --identity sovereign-controller canister status --network ic sovereign_desk_frontend
 ```
 
 ## Review Notes
 
-This is a canister-native MVP, not a finished production system. Do not use it for real confidential client data yet. The next hardening step is moving controller rights away from the plaintext development identity and toward a protected identity, multisig, Launchtrail, SNS, or another governance model.
+This is a canister-native MVP, not a finished production system. Do not use it for real confidential client data yet. Controller rights have moved off the plaintext development identity; the next governance step is multisig, Launchtrail, SNS, or an equivalent team-grade model.

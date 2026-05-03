@@ -50,7 +50,7 @@ Mainnet canisters:
 - Frontend: `v7inb-hyaaa-aaaal-qw7aq-cai`
 - Backend: `vyjlv-kaaaa-aaaal-qw7aa-cai`
 
-Current limitations are documented in SECURITY.md. The biggest next hardening step is moving controller rights away from the plaintext development identity toward a protected identity, multisig, Launchtrail, SNS, or another governance model.
+Current limitations are documented in SECURITY.md. Controller rights have moved off the plaintext development identity; the next governance step is multisig, Launchtrail, SNS, or another team-grade control model.
 
 I would appreciate feedback from ICP builders on:
 

@@ -12,6 +12,7 @@ flowchart LR
   Backend --> PublicDemo[Redacted public proof]
   Backend --> Workspace[Workspace state]
   Backend --> Roles[Owner/Admin/Operator/Client/Reviewer roles]
+  Backend --> Vault[Document Vault versions and hash checks]
   Backend --> Audit[Audit events]
   Backend --> Snapshot[Owner-only state snapshot]
 ```
@@ -20,7 +21,7 @@ flowchart LR
 
 - Frontend: `v7inb-hyaaa-aaaal-qw7aq-cai`
 - Backend: `vyjlv-kaaaa-aaaal-qw7aa-cai`
-- Controller: `up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe`
+- Controller: `7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae`
 
 ## Current Boundaries
 

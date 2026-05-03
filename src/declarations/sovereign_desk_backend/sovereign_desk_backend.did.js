@@ -1,10 +1,26 @@
 export const idlFactory = ({ IDL }) => {
+  const DocumentVersion = IDL.Record({
+    'id' : IDL.Nat,
+    'contentHash' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'createdBy' : IDL.Principal,
+    'version' : IDL.Nat,
+    'encryptedKeyRef' : IDL.Text,
+    'documentId' : IDL.Nat,
+    'sizeBytes' : IDL.Nat,
+  });
   const Note = IDL.Record({
     'id' : IDL.Nat,
     'body' : IDL.Text,
     'createdAt' : IDL.Int,
     'author' : IDL.Principal,
     'projectId' : IDL.Nat,
+  });
+  const DocumentArchiveRecord = IDL.Record({
+    'documentId' : IDL.Nat,
+    'reason' : IDL.Text,
+    'archivedAt' : IDL.Int,
+    'archivedBy' : IDL.Principal,
   });
   const AgentResponse = IDL.Record({
     'id' : IDL.Nat,
@@ -100,6 +116,16 @@ export const idlFactory = ({ IDL }) => {
     'target' : IDL.Text,
     'actorPrincipal' : IDL.Principal,
   });
+  const DocumentHashVerification = IDL.Record({
+    'id' : IDL.Nat,
+    'submittedHash' : IDL.Text,
+    'versionId' : IDL.Opt(IDL.Nat),
+    'matches' : IDL.Bool,
+    'documentId' : IDL.Nat,
+    'expectedHash' : IDL.Text,
+    'verifiedAt' : IDL.Int,
+    'verifiedBy' : IDL.Principal,
+  });
   const Workspace = IDL.Record({
     'id' : IDL.Nat,
     'owner' : IDL.Principal,
@@ -138,7 +164,10 @@ export const idlFactory = ({ IDL }) => {
     'projects' : IDL.Vec(Project),
     'nextAuditId' : IDL.Nat,
     'nextTaskId' : IDL.Nat,
+    'documentVersions' : IDL.Vec(DocumentVersion),
+    'documentArchives' : IDL.Vec(DocumentArchiveRecord),
     'exportedAt' : IDL.Int,
+    'documentHashVerifications' : IDL.Vec(DocumentHashVerification),
     'nextApprovalId' : IDL.Nat,
     'notes' : IDL.Vec(Note),
     'workspace' : IDL.Opt(Workspace),
@@ -147,6 +176,7 @@ export const idlFactory = ({ IDL }) => {
     'nextClientId' : IDL.Nat,
     'schemaVersion' : IDL.Nat,
     'rejectedAccessRequestIds' : IDL.Vec(IDL.Nat),
+    'nextDocumentVerificationId' : IDL.Nat,
     'approvedAccessRequestIds' : IDL.Vec(IDL.Nat),
     'nextWorkspaceId' : IDL.Nat,
     'nextNoteId' : IDL.Nat,
@@ -154,6 +184,7 @@ export const idlFactory = ({ IDL }) => {
     'approvals' : IDL.Vec(Approval),
     'nextClientInviteId' : IDL.Nat,
     'clients' : IDL.Vec(Client),
+    'nextDocumentVersionId' : IDL.Nat,
   });
   const WorkspaceView = IDL.Record({
     'tasks' : IDL.Vec(Task),
@@ -231,6 +262,9 @@ export const idlFactory = ({ IDL }) => {
     'documents' : IDL.Nat,
     'audit' : IDL.Nat,
     'projects' : IDL.Nat,
+    'documentVersions' : IDL.Nat,
+    'documentArchives' : IDL.Nat,
+    'documentHashVerifications' : IDL.Nat,
     'notes' : IDL.Nat,
     'accessRequests' : IDL.Nat,
     'roleGrants' : IDL.Nat,
@@ -255,10 +289,20 @@ export const idlFactory = ({ IDL }) => {
   });
   return IDL.Service({
     'add_admin' : IDL.Func([IDL.Principal], [IDL.Vec(IDL.Principal)], []),
+    'add_document_version' : IDL.Func(
+        [IDL.Nat, IDL.Nat, IDL.Text, IDL.Text],
+        [DocumentVersion],
+        [],
+      ),
     'append_note' : IDL.Func([IDL.Nat, IDL.Text], [Note], []),
     'approve_access_request' : IDL.Func(
         [IDL.Nat],
         [IDL.Vec(IDL.Principal)],
+        [],
+      ),
+    'archive_document_record' : IDL.Func(
+        [IDL.Nat, IDL.Text],
+        [DocumentArchiveRecord],
         [],
       ),
     'ask_agent' : IDL.Func([IDL.Text, IDL.Text], [AgentResponse], []),
@@ -318,6 +362,21 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'list_client_invites' : IDL.Func([], [IDL.Vec(ClientInvite)], ['query']),
+    'list_document_archives' : IDL.Func(
+        [],
+        [IDL.Vec(DocumentArchiveRecord)],
+        ['query'],
+      ),
+    'list_document_verifications' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Vec(DocumentHashVerification)],
+        ['query'],
+      ),
+    'list_document_versions' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Vec(DocumentVersion)],
+        ['query'],
+      ),
     'list_role_grants' : IDL.Func([], [IDL.Vec(RoleGrant)], ['query']),
     'migrate_schema_version' : IDL.Func([], [IDL.Nat], []),
     'reject_access_request' : IDL.Func(
@@ -370,6 +429,11 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'update_task_status' : IDL.Func([IDL.Nat, TaskStatus], [Task], []),
+    'verify_document_hash' : IDL.Func(
+        [IDL.Nat, IDL.Opt(IDL.Nat), IDL.Text],
+        [DocumentHashVerification],
+        [],
+      ),
   });
 };
 export const init = ({ IDL }) => { return []; };

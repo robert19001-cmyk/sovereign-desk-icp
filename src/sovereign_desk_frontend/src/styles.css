@@ -1496,6 +1496,11 @@ dd {
   background: rgba(184, 154, 87, 0.06);
 }
 
+.data-table tr.archived-row td {
+  background: rgba(17, 16, 13, 0.035);
+  color: var(--muted);
+}
+
 .data-table strong,
 .data-table span,
 .data-table code {
@@ -1513,6 +1518,89 @@ dd {
   color: var(--ink-soft);
   overflow-wrap: anywhere;
   font-size: 0.8rem;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+.vault-empty {
+  margin-top: 0.9rem;
+  padding: 1rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: rgba(184, 154, 87, 0.035);
+}
+
+.vault-console {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.8fr) repeat(2, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.vault-summary {
+  padding: 1rem;
+  border: 1px solid rgba(184, 154, 87, 0.22);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(135deg, rgba(184, 154, 87, 0.08), rgba(255, 255, 255, 0.78)),
+    #fff;
+}
+
+.vault-summary span {
+  color: var(--gold-3);
+  font-size: 0.75rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.vault-summary strong {
+  display: block;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.vault-summary p {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.vault-verifications {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vault-verifications li {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.vault-verifications li.match {
+  border-left-color: var(--green);
+}
+
+.vault-verifications li.mismatch {
+  border-left-color: var(--red);
+}
+
+.vault-verifications strong,
+.vault-verifications span,
+.vault-verifications code {
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 .review-rail {
@@ -2444,6 +2532,10 @@ button.tiny {
   }
 
   .manager-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vault-console {
     grid-template-columns: 1fr;
   }
 

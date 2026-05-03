@@ -7,7 +7,7 @@ import Time "mo:base/Time";
 
 persistent actor {
   let bootstrapOwner : Principal = Principal.fromText("up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe");
-  var currentSchemaVersion : Nat = 3;
+  var currentSchemaVersion : Nat = 4;
 
   public type Workspace = {
     id : Nat;
@@ -73,6 +73,35 @@ persistent actor {
     createdAt : Int;
   };
 
+  public type DocumentVersion = {
+    id : Nat;
+    documentId : Nat;
+    version : Nat;
+    sizeBytes : Nat;
+    encryptedKeyRef : Text;
+    contentHash : Text;
+    createdBy : Principal;
+    createdAt : Int;
+  };
+
+  public type DocumentArchiveRecord = {
+    documentId : Nat;
+    archivedBy : Principal;
+    archivedAt : Int;
+    reason : Text;
+  };
+
+  public type DocumentHashVerification = {
+    id : Nat;
+    documentId : Nat;
+    versionId : ?Nat;
+    submittedHash : Text;
+    expectedHash : Text;
+    matches : Bool;
+    verifiedBy : Principal;
+    verifiedAt : Int;
+  };
+
   public type Note = {
     id : Nat;
     projectId : Nat;
@@ -112,6 +141,9 @@ persistent actor {
     accessRequests : Nat;
     roleGrants : Nat;
     clientInvites : Nat;
+    documentVersions : Nat;
+    documentArchives : Nat;
+    documentHashVerifications : Nat;
   };
 
   public type SystemInfo = {
@@ -138,6 +170,9 @@ persistent actor {
     rejectedAccessRequestIds : [Nat];
     roleGrants : [RoleGrant];
     clientInvites : [ClientInvite];
+    documentVersions : [DocumentVersion];
+    documentArchives : [DocumentArchiveRecord];
+    documentHashVerifications : [DocumentHashVerification];
     nextWorkspaceId : Nat;
     nextClientId : Nat;
     nextProjectId : Nat;
@@ -149,6 +184,8 @@ persistent actor {
     nextAgentResponseId : Nat;
     nextAccessRequestId : Nat;
     nextClientInviteId : Nat;
+    nextDocumentVersionId : Nat;
+    nextDocumentVerificationId : Nat;
   };
 
   public type ClientPortalView = {
@@ -287,6 +324,9 @@ persistent actor {
   var rejectedAccessRequestIds : [Nat] = [];
   var roleGrants : [RoleGrant] = [];
   var clientInvites : [ClientInvite] = [];
+  var documentVersions : [DocumentVersion] = [];
+  var documentArchives : [DocumentArchiveRecord] = [];
+  var documentHashVerifications : [DocumentHashVerification] = [];
 
   var nextWorkspaceId : Nat = 1;
   var nextClientId : Nat = 1;
@@ -299,6 +339,8 @@ persistent actor {
   var nextAgentResponseId : Nat = 1;
   var nextAccessRequestId : Nat = 1;
   var nextClientInviteId : Nat = 1;
+  var nextDocumentVersionId : Nat = 1;
+  var nextDocumentVerificationId : Nat = 1;
 
   func now() : Int {
     Time.now()
@@ -316,6 +358,9 @@ persistent actor {
       accessRequests = Array.size(accessRequests);
       roleGrants = Array.size(roleGrants);
       clientInvites = Array.size(clientInvites);
+      documentVersions = Array.size(documentVersions);
+      documentArchives = Array.size(documentArchives);
+      documentHashVerifications = Array.size(documentHashVerifications);
     }
   };
 
@@ -477,6 +522,14 @@ persistent actor {
     Array.find<Project>(projects, func(project) { project.id == projectId })
   };
 
+  func documentById(documentId : Nat) : ?DocumentRecord {
+    Array.find<DocumentRecord>(documents, func(document) { document.id == documentId })
+  };
+
+  func documentVersionById(versionId : Nat) : ?DocumentVersion {
+    Array.find<DocumentVersion>(documentVersions, func(version) { version.id == versionId })
+  };
+
   func clientById(clientId : Nat) : ?Client {
     Array.find<Client>(clients, func(client) { client.id == clientId })
   };
@@ -570,6 +623,40 @@ persistent actor {
     switch (invite.claimedBy, invite.revokedAt) {
       case (null, null) { true };
       case (_) { false };
+    }
+  };
+
+  func isDocumentArchived(documentId : Nat) : Bool {
+    Array.find<DocumentArchiveRecord>(
+      documentArchives,
+      func(record) { record.documentId == documentId },
+    ) != null
+  };
+
+  func latestDocumentVersionNumber(documentId : Nat) : Nat {
+    var latest : Nat = 0;
+    for (version in documentVersions.vals()) {
+      if (version.documentId == documentId and version.version > latest) {
+        latest := version.version;
+      };
+    };
+    latest
+  };
+
+  func requireDocumentAccess(caller : Principal, documentId : Nat) : DocumentRecord {
+    switch (documentById(documentId)) {
+      case (?document) {
+        switch (projectById(document.projectId)) {
+          case (?project) {
+            if (not canAccessProject(caller, project)) {
+              Debug.trap("document not accessible");
+            };
+            document
+          };
+          case null { Debug.trap("project not found") };
+        }
+      };
+      case null { Debug.trap("document not found") };
     }
   };
 
@@ -696,8 +783,8 @@ persistent actor {
 
   public shared ({ caller }) func migrate_schema_version() : async Nat {
     requireOwner(caller);
-    currentSchemaVersion := 3;
-    addAudit(caller, "system.schema.migrated", "schema:3", "Schema version migrated");
+    currentSchemaVersion := 4;
+    addAudit(caller, "system.schema.migrated", "schema:4", "Schema version migrated");
     currentSchemaVersion
   };
 
@@ -719,6 +806,9 @@ persistent actor {
       rejectedAccessRequestIds;
       roleGrants;
       clientInvites;
+      documentVersions;
+      documentArchives;
+      documentHashVerifications;
       nextWorkspaceId;
       nextClientId;
       nextProjectId;
@@ -730,6 +820,8 @@ persistent actor {
       nextAgentResponseId;
       nextAccessRequestId;
       nextClientInviteId;
+      nextDocumentVersionId;
+      nextDocumentVerificationId;
     }
   };
 
@@ -1489,6 +1581,113 @@ persistent actor {
       };
       case null { Debug.trap("document not found") };
     }
+  };
+
+  public shared ({ caller }) func add_document_version(
+    documentId : Nat,
+    sizeBytes : Nat,
+    encryptedKeyRef : Text,
+    contentHash : Text,
+  ) : async DocumentVersion {
+    requireAdmin(caller);
+    ignore requireDocumentAccess(caller, documentId);
+    if (isDocumentArchived(documentId)) {
+      Debug.trap("document archived");
+    };
+    requireText("encrypted key ref", encryptedKeyRef, 240);
+    requireText("content hash", contentHash, 240);
+    requireSha256Hash(contentHash);
+    if (sizeBytes > 2_000_000) {
+      Debug.trap("document too large for MVP record limit");
+    };
+    let version : DocumentVersion = {
+      id = nextDocumentVersionId;
+      documentId;
+      version = latestDocumentVersionNumber(documentId) + 1;
+      sizeBytes;
+      encryptedKeyRef;
+      contentHash;
+      createdBy = caller;
+      createdAt = now();
+    };
+    nextDocumentVersionId += 1;
+    documentVersions := Array.append(documentVersions, [version]);
+    addAudit(caller, "document.version.added", "document:" # Nat.toText(documentId), "Document vault version recorded");
+    version
+  };
+
+  public shared ({ caller }) func archive_document_record(documentId : Nat, reason : Text) : async DocumentArchiveRecord {
+    requireAdmin(caller);
+    ignore requireDocumentAccess(caller, documentId);
+    requireText("archive reason", reason, 280);
+    if (isDocumentArchived(documentId)) {
+      Debug.trap("document already archived");
+    };
+    let archive : DocumentArchiveRecord = {
+      documentId;
+      archivedBy = caller;
+      archivedAt = now();
+      reason;
+    };
+    documentArchives := Array.append(documentArchives, [archive]);
+    addAudit(caller, "document.archived", "document:" # Nat.toText(documentId), "Document archived");
+    archive
+  };
+
+  public shared ({ caller }) func verify_document_hash(
+    documentId : Nat,
+    versionId : ?Nat,
+    submittedHash : Text,
+  ) : async DocumentHashVerification {
+    requireAuthenticated(caller);
+    let document = requireDocumentAccess(caller, documentId);
+    requireText("submitted hash", submittedHash, 240);
+    requireSha256Hash(submittedHash);
+    let expectedHash = switch (versionId) {
+      case (?id) {
+        switch (documentVersionById(id)) {
+          case (?version) {
+            if (version.documentId != documentId) {
+              Debug.trap("version does not belong to document");
+            };
+            version.contentHash
+          };
+          case null { Debug.trap("document version not found") };
+        }
+      };
+      case null { document.contentHash };
+    };
+    let verification : DocumentHashVerification = {
+      id = nextDocumentVerificationId;
+      documentId;
+      versionId;
+      submittedHash;
+      expectedHash;
+      matches = submittedHash == expectedHash;
+      verifiedBy = caller;
+      verifiedAt = now();
+    };
+    nextDocumentVerificationId += 1;
+    documentHashVerifications := Array.append(documentHashVerifications, [verification]);
+    addAudit(caller, "document.hash.verified", "document:" # Nat.toText(documentId), if (verification.matches) { "Document hash matched" } else { "Document hash mismatch" });
+    verification
+  };
+
+  public shared query ({ caller }) func list_document_versions(documentId : Nat) : async [DocumentVersion] {
+    requireAuthenticated(caller);
+    ignore requireDocumentAccess(caller, documentId);
+    Array.filter<DocumentVersion>(documentVersions, func(version) { version.documentId == documentId })
+  };
+
+  public shared query ({ caller }) func list_document_verifications(documentId : Nat) : async [DocumentHashVerification] {
+    requireAuthenticated(caller);
+    ignore requireDocumentAccess(caller, documentId);
+    Array.filter<DocumentHashVerification>(documentHashVerifications, func(verification) { verification.documentId == documentId })
+  };
+
+  public shared query ({ caller }) func list_document_archives() : async [DocumentArchiveRecord] {
+    requireAdmin(caller);
+    documentArchives
   };
 
   public shared ({ caller }) func append_note(projectId : Nat, body : Text) : async Note {

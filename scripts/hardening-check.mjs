@@ -3,7 +3,8 @@ import { execFileSync } from "node:child_process";
 const backendName = "sovereign_desk_backend";
 
 function runDfx(args) {
-  return execFileSync("dfx", args, {
+  const fullArgs = args[0] === "--identity" ? args : ["--identity", "codex-icp", ...args];
+  return execFileSync("dfx", fullArgs, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     env: {
@@ -66,6 +67,32 @@ const checks = [
       backendName,
       "create_document_record",
       '(1, "bad-hash-check.pdf", "application/pdf", 1000, "vetkd:test", "sha256:notvalid")',
+      "--network",
+      "ic",
+    ],
+    "content hash must be sha256:<64 hex>",
+  ),
+  expectTrap(
+    "document version hash format enforced",
+    [
+      "canister",
+      "call",
+      backendName,
+      "add_document_version",
+      '(4, 1000, "vetkd:test", "sha256:notvalid")',
+      "--network",
+      "ic",
+    ],
+    "content hash must be sha256:<64 hex>",
+  ),
+  expectTrap(
+    "document verification hash format enforced",
+    [
+      "canister",
+      "call",
+      backendName,
+      "verify_document_hash",
+      '(4, null, "sha256:notvalid")',
       "--network",
       "ic",
     ],

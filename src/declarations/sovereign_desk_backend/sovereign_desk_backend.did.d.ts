@@ -71,6 +71,22 @@ export interface ClientPortalView {
   'notes' : Array<Note>,
   'approvals' : Array<Approval>,
 }
+export interface DocumentArchiveRecord {
+  'documentId' : bigint,
+  'reason' : string,
+  'archivedAt' : bigint,
+  'archivedBy' : Principal,
+}
+export interface DocumentHashVerification {
+  'id' : bigint,
+  'submittedHash' : string,
+  'versionId' : [] | [bigint],
+  'matches' : boolean,
+  'documentId' : bigint,
+  'expectedHash' : string,
+  'verifiedAt' : bigint,
+  'verifiedBy' : Principal,
+}
 export interface DocumentRecord {
   'id' : bigint,
   'contentHash' : string,
@@ -79,6 +95,16 @@ export interface DocumentRecord {
   'mimeType' : string,
   'encryptedKeyRef' : string,
   'projectId' : bigint,
+  'sizeBytes' : bigint,
+}
+export interface DocumentVersion {
+  'id' : bigint,
+  'contentHash' : string,
+  'createdAt' : bigint,
+  'createdBy' : Principal,
+  'version' : bigint,
+  'encryptedKeyRef' : string,
+  'documentId' : bigint,
   'sizeBytes' : bigint,
 }
 export interface Note {
@@ -174,6 +200,9 @@ export interface StateCounts {
   'documents' : bigint,
   'audit' : bigint,
   'projects' : bigint,
+  'documentVersions' : bigint,
+  'documentArchives' : bigint,
+  'documentHashVerifications' : bigint,
   'notes' : bigint,
   'accessRequests' : bigint,
   'roleGrants' : bigint,
@@ -191,7 +220,10 @@ export interface StateSnapshot {
   'projects' : Array<Project>,
   'nextAuditId' : bigint,
   'nextTaskId' : bigint,
+  'documentVersions' : Array<DocumentVersion>,
+  'documentArchives' : Array<DocumentArchiveRecord>,
   'exportedAt' : bigint,
+  'documentHashVerifications' : Array<DocumentHashVerification>,
   'nextApprovalId' : bigint,
   'notes' : Array<Note>,
   'workspace' : [] | [Workspace],
@@ -200,6 +232,7 @@ export interface StateSnapshot {
   'nextClientId' : bigint,
   'schemaVersion' : bigint,
   'rejectedAccessRequestIds' : Array<bigint>,
+  'nextDocumentVerificationId' : bigint,
   'approvedAccessRequestIds' : Array<bigint>,
   'nextWorkspaceId' : bigint,
   'nextNoteId' : bigint,
@@ -207,6 +240,7 @@ export interface StateSnapshot {
   'approvals' : Array<Approval>,
   'nextClientInviteId' : bigint,
   'clients' : Array<Client>,
+  'nextDocumentVersionId' : bigint,
 }
 export interface SystemInfo {
   'workspaceInitialized' : boolean,
@@ -245,8 +279,16 @@ export interface WorkspaceView {
 }
 export interface _SERVICE {
   'add_admin' : ActorMethod<[Principal], Array<Principal>>,
+  'add_document_version' : ActorMethod<
+    [bigint, bigint, string, string],
+    DocumentVersion
+  >,
   'append_note' : ActorMethod<[bigint, string], Note>,
   'approve_access_request' : ActorMethod<[bigint], Array<Principal>>,
+  'archive_document_record' : ActorMethod<
+    [bigint, string],
+    DocumentArchiveRecord
+  >,
   'ask_agent' : ActorMethod<[string, string], AgentResponse>,
   'claim_client_invite' : ActorMethod<[bigint, string], ClientPortalView>,
   'create_approval' : ActorMethod<[bigint, string, string], Approval>,
@@ -277,6 +319,12 @@ export interface _SERVICE {
   'list_access_requests' : ActorMethod<[], Array<AccessRequest>>,
   'list_audit' : ActorMethod<[bigint, bigint], Array<AuditEvent>>,
   'list_client_invites' : ActorMethod<[], Array<ClientInvite>>,
+  'list_document_archives' : ActorMethod<[], Array<DocumentArchiveRecord>>,
+  'list_document_verifications' : ActorMethod<
+    [bigint],
+    Array<DocumentHashVerification>
+  >,
+  'list_document_versions' : ActorMethod<[bigint], Array<DocumentVersion>>,
   'list_role_grants' : ActorMethod<[], Array<RoleGrant>>,
   'migrate_schema_version' : ActorMethod<[], bigint>,
   'reject_access_request' : ActorMethod<[bigint, string], AccessRequest>,
@@ -302,6 +350,10 @@ export interface _SERVICE {
   'update_project_status' : ActorMethod<[bigint, ProjectStatus], Project>,
   'update_task' : ActorMethod<[bigint, string, string, TaskStatus], Task>,
   'update_task_status' : ActorMethod<[bigint, TaskStatus], Task>,
+  'verify_document_hash' : ActorMethod<
+    [bigint, [] | [bigint], string],
+    DocumentHashVerification
+  >,
 }
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const init: (args: { IDL: typeof IDL }) => IDL.Type[];

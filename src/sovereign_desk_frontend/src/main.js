@@ -9,10 +9,10 @@ const DFX_NETWORK = __DFX_NETWORK__;
 const MAINNET_HOST = "https://icp-api.io";
 const FRONTEND_CANISTER_ID = "v7inb-hyaaa-aaaal-qw7aq-cai";
 const TRUST = {
-  controller: "up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe",
-  backendModuleHash: "0xfbe8b58e01a44a92eefd85b016a4687c1940cdba334083ff34bce91b9d260784",
+  controller: "7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae",
+  backendModuleHash: "0x4aae46ec17aa03ab3d5483fb3841ab378102c8e57341b24c663d754491d8ae07",
   frontendModuleHash: "0x04e565b3425fe7510ee16b02adcfe3f01abc9a2725c82a21cb08969241debd62",
-  governance: "Single developer controller; next step is hardware-backed identity, multisig, or SNS.",
+  governance: "Protected keychain controller live; next step is multisig, SNS, or Launchtrail governance.",
   source: "git@github.com:robert19001-cmyk/sovereign-desk-icp.git",
 };
 const CREATOR = {
@@ -39,6 +39,9 @@ const state = {
   accessRequests: [],
   clientInvites: [],
   roleGrants: [],
+  documentArchives: [],
+  documentVersions: {},
+  documentVerifications: {},
   agentResponse: null,
   loading: false,
   error: "",
@@ -177,6 +180,23 @@ function currentDocuments(view) {
   const project = currentProject(view);
   const documents = view?.documents || [];
   return project ? documents.filter((doc) => sameId(doc.projectId, project.id)) : documents;
+}
+
+function documentVersions(documentId) {
+  return state.documentVersions[idText(documentId)] || [];
+}
+
+function documentVerifications(documentId) {
+  return state.documentVerifications[idText(documentId)] || [];
+}
+
+function documentArchive(documentId) {
+  return (state.documentArchives || []).find((record) => sameId(record.documentId, documentId)) || null;
+}
+
+function latestDocumentVersion(documentId) {
+  const versions = documentVersions(documentId);
+  return versions[versions.length - 1] || null;
 }
 
 function currentNotes(view) {
@@ -719,7 +739,7 @@ function renderCreatorSignal() {
         <div><dt>Name</dt><dd>${e(CREATOR.name)}</dd></div>
         <div><dt>Focus</dt><dd>${e(CREATOR.title)}</dd></div>
         <div><dt>Email</dt><dd>${e(CREATOR.email)}</dd></div>
-        <div><dt>Controller principal</dt><dd>${e(shortPrincipal(CREATOR.principal))}</dd></div>
+        <div><dt>Workspace owner</dt><dd>${e(shortPrincipal(CREATOR.principal))}</dd></div>
       </dl>
     </section>
   `;
@@ -1016,6 +1036,60 @@ function renderContextSwitcher(view) {
   `;
 }
 
+function renderDocumentVaultTools(document) {
+  if (!document) {
+    return `<div class="vault-empty">Create a document record first, then add versions and verify hashes.</div>`;
+  }
+  const versions = documentVersions(document.id);
+  const verifications = documentVerifications(document.id);
+  const versionOptions = versions.map((version) => `
+    <option value="${e(idText(version.id))}">v${e(natText(version.version))} · ${e(version.contentHash)}</option>
+  `).join("");
+  const verificationRows = verifications.slice(-4).reverse().map((item) => `
+    <li class="${item.matches ? "match" : "mismatch"}">
+      <strong>${item.matches ? "Match" : "Mismatch"}</strong>
+      <code>${e(item.submittedHash)}</code>
+    </li>
+  `).join("");
+  return `
+    <div class="vault-console">
+      <div class="vault-summary">
+        <span>Document Vault v1</span>
+        <strong>${e(document.name)}</strong>
+        <p>Client-side SHA-256 verification, immutable version records, archive trail, and audit events.</p>
+      </div>
+      <form class="compact-form" data-action="add-document-version">
+        <input type="hidden" name="documentId" value="${e(idText(document.id))}" />
+        <label class="file-drop">
+          <span>Add version file</span>
+          <input name="file" type="file" required />
+          <small>The browser hashes the file locally. The canister stores only metadata, hash, and key reference.</small>
+        </label>
+        <label><span>Encrypted key ref</span><input name="encryptedKeyRef" value="vetkd:client-room:key-${e(idText(document.id))}-v${versions.length + 1}" maxlength="240" required /></label>
+        <button type="submit">Add version</button>
+      </form>
+      <form class="compact-form" data-action="verify-document-hash">
+        <input type="hidden" name="documentId" value="${e(idText(document.id))}" />
+        <label>
+          <span>Version</span>
+          <select name="versionId">
+            <option value="">Original record</option>
+            ${versionOptions}
+          </select>
+        </label>
+        <label class="file-drop">
+          <span>Verify file</span>
+          <input name="file" type="file" />
+          <small>Optional. Selecting a file computes SHA-256 locally and compares it with the selected vault record.</small>
+        </label>
+        <label><span>Or paste SHA-256</span><input name="submittedHash" value="${e(document.contentHash)}" maxlength="240" /></label>
+        <button type="submit">Verify hash</button>
+      </form>
+      <ol class="vault-verifications">${verificationRows || "<li><strong>No verifications yet</strong><span>Run a file check to create evidence.</span></li>"}</ol>
+    </div>
+  `;
+}
+
 function renderWorkspaceManager(view) {
   if (!state.operatorAccess && !state.clientPortalAccess) return "";
   const clients = view?.clients || [];
@@ -1065,14 +1139,33 @@ function renderWorkspaceManager(view) {
       </td>
     </tr>
   `).join("");
-  const documentRows = documents.map((item) => `
-    <tr>
-      <td><strong>${e(item.name)}</strong><span>${e(item.mimeType)}</span></td>
-      <td>${e(natText(item.sizeBytes))} bytes</td>
-      <td><code>${e(item.contentHash)}</code></td>
-      <td>${e(item.encryptedKeyRef)}</td>
-    </tr>
-  `).join("");
+  const documentRows = documents.map((item) => {
+    const versions = documentVersions(item.id);
+    const latest = latestDocumentVersion(item.id);
+    const verifications = documentVerifications(item.id);
+    const lastVerification = verifications[verifications.length - 1];
+    const archive = documentArchive(item.id);
+    return `
+      <tr class="${archive ? "archived-row" : ""}">
+        <td>
+          <strong>${e(item.name)}</strong>
+          <span>${e(item.mimeType)} · ${archive ? "Archived" : "Active"} · ${versions.length} versions</span>
+        </td>
+        <td>${e(natText(latest?.sizeBytes ?? item.sizeBytes))} bytes</td>
+        <td>
+          <code>${e(latest?.contentHash || item.contentHash)}</code>
+          ${lastVerification ? `<span>${lastVerification.matches ? "Last verification matched" : "Last verification mismatch"}</span>` : ""}
+        </td>
+        <td>
+          <code>${e(latest?.encryptedKeyRef || item.encryptedKeyRef)}</code>
+          <div class="row-actions">
+            <button type="button" class="tiny" data-action="load-document-vault" data-document-id="${e(idText(item.id))}">Refresh vault</button>
+            ${state.operatorAccess && !archive ? `<button type="button" class="tiny" data-action="archive-document" data-document-id="${e(idText(item.id))}">Archive</button>` : ""}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
   const auditRows = audit.map((item) => `
     <tr>
       <td><strong>${e(auditTitle(item))}</strong><span>${e(item.action)}</span></td>
@@ -1080,6 +1173,7 @@ function renderWorkspaceManager(view) {
       <td>${e(shortPrincipal(item.actorPrincipal))}</td>
     </tr>
   `).join("");
+  const vaultDocument = documents.find((item) => documentVersions(item.id).length || documentVerifications(item.id).length) || documents[0];
 
   return `
     <section class="workspace-manager reveal" aria-label="Workspace manager">
@@ -1134,14 +1228,15 @@ function renderWorkspaceManager(view) {
         <article id="manager-documents" class="surface manager-panel">
           <div class="section-heading">
             <span>Documents</span>
-            <h2>Certified metadata</h2>
+            <h2>Vault metadata</h2>
           </div>
           <div class="data-table-wrap">
             <table class="data-table">
-              <thead><tr><th>Document</th><th>Size</th><th>Hash</th><th>Key ref</th></tr></thead>
+              <thead><tr><th>Document</th><th>Size</th><th>Hash</th><th>Vault actions</th></tr></thead>
               <tbody>${documentRows || '<tr><td colspan="4">No document records in this project.</td></tr>'}</tbody>
             </table>
           </div>
+          ${renderDocumentVaultTools(vaultDocument)}
         </article>
 
         <article id="manager-audit" class="surface manager-panel wide">
@@ -1320,6 +1415,9 @@ async function refreshData() {
   state.roles = [];
   state.roleGrants = [];
   state.clientInvites = [];
+  state.documentArchives = [];
+  state.documentVersions = {};
+  state.documentVerifications = {};
   state.governanceAccess = false;
   state.operatorAccess = false;
   state.clientPortalAccess = false;
@@ -1340,6 +1438,7 @@ async function refreshData() {
       state.accessRequests = state.governanceAccess ? await state.actor.list_access_requests() : [];
       state.roleGrants = state.governanceAccess ? await state.actor.list_role_grants() : [];
       state.clientInvites = await state.actor.list_client_invites().catch(() => []);
+      state.documentArchives = await state.actor.list_document_archives().catch(() => []);
     }
 
     if (!state.workspaceView) {
@@ -1367,6 +1466,17 @@ async function refreshData() {
     state.portalView = portal.length ? portal[0] : null;
   } else if (!state.clientPortalAccess) {
     state.portalView = null;
+  }
+  await refreshVaultForCurrentDocuments().catch(() => undefined);
+}
+
+async function refreshVaultForCurrentDocuments() {
+  if (!state.isAuthenticated || !state.workspaceView || (!state.operatorAccess && !state.clientPortalAccess)) return;
+  const docs = currentDocuments(state.workspaceView).slice(0, 8);
+  for (const doc of docs) {
+    const documentId = idText(doc.id);
+    state.documentVersions[documentId] = await state.actor.list_document_versions(doc.id).catch(() => []);
+    state.documentVerifications[documentId] = await state.actor.list_document_verifications(doc.id).catch(() => []);
   }
 }
 
@@ -1535,6 +1645,18 @@ app.addEventListener("click", (event) => {
     await refreshData();
     state.notice = "Client invite revoked.";
   });
+  if (action === "load-document-vault") withBusy(async () => {
+    const documentId = nat(button.dataset.documentId);
+    state.documentVersions[idText(documentId)] = await state.actor.list_document_versions(documentId);
+    state.documentVerifications[idText(documentId)] = await state.actor.list_document_verifications(documentId);
+    state.notice = "Document vault evidence refreshed.";
+  });
+  if (action === "archive-document") withBusy(async () => {
+    if (!state.operatorAccess) throw new Error("caller is not an admin");
+    await state.actor.archive_document_record(nat(button.dataset.documentId), "Archived from SovereignDesk vault console.");
+    await refreshData();
+    state.notice = "Document archived and recorded in the audit trail.";
+  });
 });
 
 app.addEventListener("change", (event) => {
@@ -1657,6 +1779,31 @@ app.addEventListener("submit", (event) => {
         data.contentHash,
       );
       state.notice = "Document record written to the canister.";
+    }
+    if (action === "add-document-version") {
+      const file = form.elements.file?.files?.[0];
+      if (!file) throw new Error("version file is required");
+      if (file.size > 2_000_000) {
+        throw new Error("document too large for MVP record limit");
+      }
+      const digest = await sha256File(file);
+      await state.actor.add_document_version(
+        nat(data.documentId),
+        BigInt(file.size),
+        data.encryptedKeyRef,
+        `sha256:${digest}`,
+      );
+      state.notice = "Document version hash recorded in the canister vault.";
+    }
+    if (action === "verify-document-hash") {
+      const file = form.elements.file?.files?.[0];
+      const submittedHash = file ? `sha256:${await sha256File(file)}` : String(data.submittedHash || "");
+      const result = await state.actor.verify_document_hash(
+        nat(data.documentId),
+        optionalNat(data.versionId),
+        submittedHash,
+      );
+      state.notice = result.matches ? "Hash verification matched the vault record." : "Hash verification mismatch recorded for audit review.";
     }
     await refreshData();
   });

@@ -4,7 +4,8 @@ const backendName = "sovereign_desk_backend";
 const ownerPrincipal = "up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe";
 
 function runDfx(args) {
-  return execFileSync("dfx", args, {
+  const fullArgs = args[0] === "--identity" ? args : ["--identity", "codex-icp", ...args];
+  return execFileSync("dfx", fullArgs, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     env: {

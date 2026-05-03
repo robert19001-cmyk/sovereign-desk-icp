@@ -38,7 +38,7 @@ Maintainer-only mainnet validation:
 
 Latest deployed hardening:
 
-- Backend module hash: `0xfbe8b58e01a44a92eefd85b016a4687c1940cdba334083ff34bce91b9d260784`
+- Backend module hash: `0x4aae46ec17aa03ab3d5483fb3841ab378102c8e57341b24c663d754491d8ae07`
 - Production bootstrap now requires the configured bootstrap owner.
 - `seed_demo` requires admin when a workspace already exists.
 - Approval responses cannot use `Pending` as a decision.
@@ -67,7 +67,7 @@ No P0 was found for the current public MVP if it is not used for real confidenti
 
 For production with real clients, the current remaining P0 risks are:
 
-- Single-controller developer identity controls both canisters.
+- Single protected controller identity controls both canisters; production governance still needs multisig, SNS, Launchtrail, or equivalent.
 - Private client data is plaintext in canister state.
 
 Recently reduced risks:
@@ -77,12 +77,13 @@ Recently reduced risks:
 - RBAC is no longer purely flat: Owner/Admin/Operator/Client/Reviewer role types exist and new operator approvals do not grant full admin semantics.
 - `seed_demo` is admin-gated after initialization and no longer lets an arbitrary caller reseed an existing workspace.
 - Upgrade safety exposes schema version and owner-only state snapshots.
+- Document Vault v1 now records document versions and hash verification evidence without storing document bytes.
+- Plaintext development identity has been removed from mainnet canister controllers.
 
 ## P0 Before Real Production Data
 
-1. Controller hardening
-   - Move controller rights away from plaintext dev identity.
-   - Use hardware-backed/passphrase identity, Launchtrail, multisig, or SNS.
+1. Governance hardening
+   - Move controller rights from protected single identity to Launchtrail, multisig, SNS, or equivalent.
    - Follow [controller-hardening-runbook.md](controller-hardening-runbook.md) for upgrade and recovery requirements.
 
 2. Controlled bootstrap
@@ -292,7 +293,7 @@ Exit criteria:
 
 Outcome: the app can be upgraded and recovered without guessing.
 
-- Move controllers from plaintext dev identity to hardware/passphrase/multisig/Launchtrail/SNS.
+- Move controllers from protected single identity to multisig, Launchtrail, SNS, or equivalent.
 - Add release manifest generation.
 - Add schema version and migration fixtures.
 - Add backup/export endpoint for owner.

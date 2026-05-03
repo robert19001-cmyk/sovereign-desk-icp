@@ -48,6 +48,9 @@ type StateSnapshot =
    audit: vec AuditEvent;
    clientInvites: vec ClientInvite;
    clients: vec Client;
+   documentArchives: vec DocumentArchiveRecord;
+   documentHashVerifications: vec DocumentHashVerification;
+   documentVersions: vec DocumentVersion;
    documents: vec DocumentRecord;
    exportedAt: int;
    nextAccessRequestId: nat;
@@ -57,6 +60,8 @@ type StateSnapshot =
    nextClientId: nat;
    nextClientInviteId: nat;
    nextDocumentId: nat;
+   nextDocumentVerificationId: nat;
+   nextDocumentVersionId: nat;
    nextNoteId: nat;
    nextProjectId: nat;
    nextTaskId: nat;
@@ -76,6 +81,9 @@ type StateCounts =
    audit: nat;
    clientInvites: nat;
    clients: nat;
+   documentArchives: nat;
+   documentHashVerifications: nat;
+   documentVersions: nat;
    documents: nat;
    notes: nat;
    projects: nat;
@@ -190,6 +198,17 @@ type Note =
    id: nat;
    projectId: nat;
  };
+type DocumentVersion =
+ record {
+   contentHash: text;
+   createdAt: int;
+   createdBy: principal;
+   documentId: nat;
+   encryptedKeyRef: text;
+   id: nat;
+   sizeBytes: nat;
+   version: nat;
+ };
 type DocumentRecord =
  record {
    contentHash: text;
@@ -200,6 +219,24 @@ type DocumentRecord =
    name: text;
    projectId: nat;
    sizeBytes: nat;
+ };
+type DocumentHashVerification =
+ record {
+   documentId: nat;
+   expectedHash: text;
+   id: nat;
+   matches: bool;
+   submittedHash: text;
+   verifiedAt: int;
+   verifiedBy: principal;
+   versionId: opt nat;
+ };
+type DocumentArchiveRecord =
+ record {
+   archivedAt: int;
+   archivedBy: principal;
+   documentId: nat;
+   reason: text;
  };
 type ClientPortalView =
  record {
@@ -286,8 +323,12 @@ type AccessRequest =
  };
 service : {
   add_admin: ("principal": principal) -> (vec principal);
+  add_document_version: (documentId: nat, sizeBytes: nat, encryptedKeyRef:
+   text, contentHash: text) -> (DocumentVersion);
   append_note: (projectId: nat, body: text) -> (Note);
   approve_access_request: (requestId: nat) -> (vec principal);
+  archive_document_record: (documentId: nat, reason: text) ->
+   (DocumentArchiveRecord);
   ask_agent: (scope: text, prompt: text) -> (AgentResponse);
   claim_client_invite: (clientId: nat, code: text) -> (ClientPortalView);
   create_approval: (projectId: nat, title: text, body: text) -> (Approval);
@@ -314,6 +355,10 @@ service : {
   list_access_requests: () -> (vec AccessRequest) query;
   list_audit: (offset: nat, limit: nat) -> (vec AuditEvent) query;
   list_client_invites: () -> (vec ClientInvite) query;
+  list_document_archives: () -> (vec DocumentArchiveRecord) query;
+  list_document_verifications: (documentId: nat) ->
+   (vec DocumentHashVerification) query;
+  list_document_versions: (documentId: nat) -> (vec DocumentVersion) query;
   list_role_grants: () -> (vec RoleGrant) query;
   migrate_schema_version: () -> (nat);
   reject_access_request: (requestId: nat, reason: text) -> (AccessRequest);
@@ -337,4 +382,6 @@ service : {
   update_task: (taskId: nat, title: text, assignee: text, status:
    TaskStatus) -> (Task);
   update_task_status: (taskId: nat, status: TaskStatus) -> (Task);
+  verify_document_hash: (documentId: nat, versionId: opt nat, submittedHash:
+   text) -> (DocumentHashVerification);
 }

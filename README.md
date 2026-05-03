@@ -6,7 +6,7 @@
 
 SovereignDesk AI is a premium ICP-native client operations workspace: private client workrooms, approval gates, document metadata, role governance, audit history, upgrade safety, and public canister proof.
 
-Production status: this repository currently represents a live ICP mainnet MVP for public review and technical validation. It is not approved for real confidential client data, secrets, user funds, or regulated production workloads until controller hardening, encrypted private data storage, and release governance are completed.
+Production status: this repository currently represents a live ICP mainnet MVP for public review and technical validation. It is not approved for real confidential client data, secrets, user funds, or regulated production workloads until encrypted private data storage and release governance are completed.
 
 ```text
 Live app: https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/
@@ -81,7 +81,7 @@ Creator contact:
 ```text
 Robert
 email: robert19001@gmail.com
-controller principal: up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe
+workspace owner principal: up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe
 ```
 
 Open backend Candid:
@@ -98,9 +98,10 @@ Current mainnet MVP hardening includes:
 - on-chain operator access request queue with governance-side approval;
 - role grants, revocation, and client portal principal rotation;
 - client invite codes for self-service Internet Identity portal claiming;
+- Document Vault v1 with document versions, archive records, and client-side SHA-256 verification evidence;
 - update endpoints for client, project, task, document metadata, and notes;
 - approval final-state protection and backend-side document hash validation;
-- schema version v3 endpoint and owner-only state snapshot export;
+- schema version v4 endpoint and owner-only state snapshot export;
 - Trust Center section with canister IDs, controller, module hashes, dashboard links, and verification command;
 - independent-project disclaimer for DFINITY/Internet Computer branding;
 - tightened asset canister CSP and Permissions-Policy;
@@ -121,8 +122,8 @@ docs/qa/screenshots/qa-mainnet-final-mobile.png
 Mainnet canister controllers:
 
 ```text
-sovereign_desk_backend:  up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe
-sovereign_desk_frontend: up6xy-uol7y-xisiv-3oron-gl7d3-usnrr-r5ong-hiqu2-hnd2h-cufv3-pqe
+sovereign_desk_backend:  7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae
+sovereign_desk_frontend: 7dnyu-motzm-oqehm-762iq-irfd3-taexs-huxbx-z5bdr-4hdjg-j4lih-5ae
 ```
 
 ## Commands
@@ -205,6 +206,12 @@ The backend exposes:
 - `respond_approval`
 - `create_document_record`
 - `update_document_record`
+- `add_document_version`
+- `archive_document_record`
+- `verify_document_hash`
+- `list_document_versions`
+- `list_document_verifications`
+- `list_document_archives`
 - `append_note`
 - `update_note`
 - `get_client_portal`
@@ -214,7 +221,7 @@ The backend exposes:
 
 ## Next Build Steps
 
-- Move controller identity from plaintext dev identity to a hardware-backed or passphrase-protected controller.
+- Move controller governance from protected single identity to multisig, SNS, Launchtrail, or equivalent.
 - Add request status lifecycle UX: pending, approved, rejected, archived.
 - Split vault, audit/proof, and agent into separate canisters once the core workflow is stable.
 - Add vetKeys for client-side encrypted document keys.
