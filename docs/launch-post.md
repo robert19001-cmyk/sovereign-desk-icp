@@ -4,7 +4,7 @@
 
 I launched SovereignDesk AI on the Internet Computer mainnet.
 
-It is a canister-native client operations workspace: Motoko backend, ICP asset canister frontend, Internet Identity gated writes, role-aware client portals, redacted public demo data, on-chain access requests, and an in-app Trust Center with canister IDs and module hashes.
+It is a canister-native client operations workspace: Motoko backend, ICP asset canister frontend, Internet Identity gated writes, role-aware client portals, redacted public demo data, encrypted vault objects, on-chain access requests, governance proposal ledger, and an in-app Trust Center with canister IDs and module hashes.
 
 Live app:
 https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/
@@ -40,6 +40,9 @@ What it demonstrates:
 - Redacted public demo endpoint so public visitors can inspect the workflow without exposing private workspace data
 - On-chain operator access request queue
 - Approval workflow and audit trail
+- Document Vault v2 with document versions, archive records, and SHA-256 verification evidence
+- Encrypted vault objects: browser-side AES-GCM encryption, ciphertext-only canister storage, and vetKeys-ready derivation context
+- Governance proposal ledger for multisig/SNS/Launchtrail migration decisions
 - AI Employee draft endpoint for operational summaries
 - In-app Trust Center with canister IDs, controller, module hashes, dashboard links, and verification command
 - Tightened asset canister CSP and Permissions-Policy
@@ -50,7 +53,7 @@ Mainnet canisters:
 - Frontend: `v7inb-hyaaa-aaaal-qw7aq-cai`
 - Backend: `vyjlv-kaaaa-aaaal-qw7aa-cai`
 
-Current limitations are documented in SECURITY.md. Controller rights have moved off the plaintext development identity; the next governance step is multisig, Launchtrail, SNS, or another team-grade control model.
+Current limitations are documented in SECURITY.md. Controller rights have moved off the plaintext development identity; encrypted vault objects are live; the next governance step is multisig, Launchtrail, SNS, or another team-grade control model.
 
 I would appreciate feedback from ICP builders on:
 
@@ -72,6 +75,8 @@ It is a canister-native client operations workspace:
 - ICP asset canister frontend
 - Internet Identity writes
 - role-aware client portals
+- encrypted vault objects
+- governance proposal ledger
 - redacted public demo data
 - on-chain access requests
 - approval workflow + audit trail
@@ -96,5 +101,5 @@ Website:
 https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/
 
 Topics:
-internet-computer, icp, motoko, dfinity, internet-identity, canister, web3, vite
+internet-computer, icp, motoko, dfinity, internet-identity, canister, web3, vite, saas, encrypted-vault, governance
 ```
