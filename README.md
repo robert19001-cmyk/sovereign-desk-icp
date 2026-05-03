@@ -37,12 +37,24 @@ The current implementation is intentionally canister-first and dependency-light:
 - [Reproducible build notes](docs/reproducible-build.md)
 - [Controller hardening runbook](docs/controller-hardening-runbook.md)
 - [Release checklist](docs/release-checklist.md)
+- [vetKeys integration plan](docs/vetkeys-integration.md)
+- [Canister split plan](docs/canister-split.md)
+- [Governance migration](docs/governance-migration.md)
+- [Trust manifest](docs/trust-manifest.json)
 - [Demo script](docs/demo-script.md)
 - [Case study](docs/case-study.md)
 - [Launch post](docs/launch-post.md)
 - [Architecture](docs/architecture.md)
 - [Design system](docs/design-system.md)
 - [Product audit and plan](docs/product-audit-and-plan.md)
+
+Demo capture artifacts are generated with:
+
+```bash
+npm run demo:capture
+```
+
+Current captures live in `docs/qa/screenshots/demo/`.
 
 ## Local Canisters
 
@@ -143,8 +155,17 @@ npm run qa:upgrade
 Maintainer-only mainnet QA:
 
 ```bash
+npm run build:ic
 npm run qa:mainnet
 npm run qa:product
+```
+
+Mainnet asset deploys must use the IC build so the bundled frontend points at the live backend instead of a local replica:
+
+```bash
+npm run build:ic
+source "$HOME/Library/Application Support/org.dfinity.dfx/env"
+dfx --identity sovereign-controller deploy sovereign_desk_frontend --network ic
 ```
 
 Do not deploy or push from routine QA. Follow [docs/release-checklist.md](docs/release-checklist.md) for release preparation and [docs/controller-hardening-runbook.md](docs/controller-hardening-runbook.md) before handling real client data.

@@ -9,6 +9,33 @@
       "main": "src/sovereign_desk_backend/main.mo",
       "type": "motoko"
     },
+    "sovereign_desk_vault": {
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ],
+      "main": "src/sovereign_desk_vault/main.mo",
+      "type": "motoko"
+    },
+    "sovereign_desk_audit": {
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ],
+      "main": "src/sovereign_desk_audit/main.mo",
+      "type": "motoko"
+    },
+    "sovereign_desk_agent": {
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ],
+      "main": "src/sovereign_desk_agent/main.mo",
+      "type": "motoko"
+    },
     "sovereign_desk_frontend": {
       "dependencies": [
         "sovereign_desk_backend"

@@ -1,0 +1,25 @@
+type TrustManifest =
+ record {
+   appName: text;
+   backendCanister: text;
+   backendModuleHash: text;
+   frontendCanister: text;
+   release: text;
+   schemaVersion: nat;
+   updatedAt: int;
+ };
+type ProofEvent =
+ record {
+   action: text;
+   actorPrincipal: principal;
+   createdAt: int;
+   id: nat;
+   summary: text;
+   target: text;
+ };
+service : {
+  append_event: (action: text, target: text, summary: text) -> (ProofEvent);
+  get_trust_manifest: () -> (opt TrustManifest) query;
+  list_events: (offset: nat, limit: nat) -> (vec ProofEvent) query;
+  publish_trust_manifest: (next: TrustManifest) -> (TrustManifest);
+}

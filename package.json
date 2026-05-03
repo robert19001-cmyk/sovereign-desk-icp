@@ -5,13 +5,15 @@
         "start": "vite --host 127.0.0.1 --config src/sovereign_desk_frontend/vite.config.js",
         "prebuild": "echo \"Building SovereignDesk frontend\"",
         "build": "vite build --config src/sovereign_desk_frontend/vite.config.js",
+        "build:ic": "DFX_NETWORK=ic CANISTER_ID_SOVEREIGN_DESK_BACKEND=vyjlv-kaaaa-aaaal-qw7aa-cai vite build --config src/sovereign_desk_frontend/vite.config.js",
         "pretest": "echo \"No pretest step required\"",
         "test": "npm run build",
         "qa:mainnet": "node scripts/qa-mainnet.mjs",
         "qa:product": "node scripts/product-health.mjs",
         "qa:hardening": "node scripts/hardening-check.mjs",
         "qa:roles": "node scripts/roles-check.mjs",
-        "qa:upgrade": "node scripts/upgrade-check.mjs"
+        "qa:upgrade": "node scripts/upgrade-check.mjs",
+        "demo:capture": "node scripts/capture-demo.mjs"
     },
     "engines": {
         "node": ">=22.12.0",
@@ -19,6 +21,7 @@
     },
     "workspaces": [],
     "dependencies": {
+        "@dfinity/vetkeys": "^0.4.0",
         "@icp-sdk/auth": "^6.2.2",
         "@icp-sdk/core": "^5.4.0",
         "vite": "^8.0.10"

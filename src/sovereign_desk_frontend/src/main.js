@@ -1342,38 +1342,49 @@ function renderAppDashboard(view) {
   const openTasks = currentTasks(view).filter((task) => variantName(task.status) !== "Done").length;
   const pendingApprovals = currentApprovals(view).filter((approval) => variantName(approval.status) === "Pending").length;
   const documentCount = currentDocuments(view).length;
+  const encryptedCount = Object.values(state.encryptedDocumentObjects || {}).reduce((total, items) => total + items.length, 0);
+  const proposalCount = state.governanceProposals?.filter((proposal) => variantName(proposal.status) === "Open").length || 0;
   return `
     <section id="overview" class="app-dashboard reveal" aria-label="Authenticated app dashboard">
-      <div class="app-dashboard-copy">
-        <span class="pill live">${e(accessLabel())}</span>
-        <h1>${state.operatorAccess ? "Workspace cockpit" : state.clientPortalAccess ? "Client portal" : "Access review"}</h1>
-        <p>
-          ${state.operatorAccess
-            ? "Run active client work: approvals, documents, notes, access, task status, and AI briefs."
-            : state.clientPortalAccess
-              ? "Review your scoped room, append notes, and respond to approval gates."
-              : "You are signed in. Request operator access or send your principal to the workspace owner."}
-        </p>
+      <div class="app-command-bar">
+        <div class="app-dashboard-copy">
+          <span class="pill live">${e(accessLabel())}</span>
+          <h1>${state.operatorAccess ? "Operations cockpit" : state.clientPortalAccess ? "Client workroom" : "Access review"}</h1>
+          <p>
+            ${state.operatorAccess
+              ? "Client work, vault evidence, governance, and canister proof in one focused control surface."
+              : state.clientPortalAccess
+                ? "Review scoped work, approvals, notes, and document evidence without exposing other clients."
+                : "You are signed in. Request operator access or send your principal to the workspace owner."}
+          </p>
+        </div>
+        <div class="app-dashboard-actions">
+          <button type="button" data-action="refresh">Refresh</button>
+          <button type="button" data-action="logout" class="secondary">Logout</button>
+        </div>
       </div>
-      <div class="app-dashboard-actions">
-        <button type="button" data-action="refresh">Refresh state</button>
-        <button type="button" data-action="logout" class="secondary">Logout</button>
-      </div>
+      <nav class="app-module-nav" aria-label="App modules">
+        <a href="#operate">Operate</a>
+        <a href="#manager-documents">Vault</a>
+        <a href="#manager-approvals">Approvals</a>
+        <a href="#manager-audit">Audit</a>
+        <a href="#trust">Trust</a>
+      </nav>
       <dl class="app-session">
         <div><dt>Principal</dt><dd>${e(shortPrincipal(state.principal))}</dd></div>
         <div><dt>Client</dt><dd>${e(client?.name || "No client loaded")}</dd></div>
         <div><dt>Project</dt><dd>${e(project?.name || "No project loaded")}</dd></div>
         <div><dt>Open Tasks</dt><dd>${e(openTasks)}</dd></div>
         <div><dt>Approvals</dt><dd>${e(pendingApprovals)} pending</dd></div>
-        <div><dt>Documents</dt><dd>${e(documentCount)} records</dd></div>
+        <div><dt>Vault</dt><dd>${e(documentCount)} docs · ${e(encryptedCount)} encrypted</dd></div>
+        ${state.governanceAccess ? `<div><dt>Governance</dt><dd>${e(proposalCount)} open proposals</dd></div>` : ""}
       </dl>
       ${renderContextSwitcher(view)}
     </section>
-    ${renderWorkspaceManager(view)}
     ${state.operatorAccess ? renderOperatorConsole(view) : ""}
+    ${renderWorkspaceManager(view)}
     ${state.clientPortalAccess ? renderPortalDetail(state.portalView) : ""}
     ${renderAccessPanel()}
-    ${renderWorkflow(view)}
     ${state.operatorAccess ? renderPortalDetail(state.portalView) : ""}
     ${renderAgentAndAudit(view)}
     <section class="app-compliance reveal" aria-label="Compliance proof">

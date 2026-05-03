@@ -1,0 +1,38 @@
+type VaultObjectInfo =
+ record {
+   algorithm: text;
+   ciphertextHash: text;
+   ciphertextSize: nat;
+   createdAt: int;
+   createdBy: principal;
+   documentId: nat;
+   id: nat;
+   ivSize: nat;
+   keyDerivationContext: text;
+   versionId: opt nat;
+   workspaceId: nat;
+ };
+type VaultObject =
+ record {
+   algorithm: text;
+   ciphertext: blob;
+   ciphertextHash: text;
+   createdAt: int;
+   createdBy: principal;
+   documentId: nat;
+   id: nat;
+   iv: blob;
+   keyDerivationContext: text;
+   versionId: opt nat;
+   workspaceId: nat;
+ };
+service : {
+  get_object: (objectId: nat) -> (opt VaultObject) query;
+  get_vetkey_derivation_context: (workspaceId: nat, documentId: nat,
+   recipient: principal) -> (text) query;
+  list_objects: (workspaceId: nat, documentId: nat) ->
+   (vec VaultObjectInfo) query;
+  store_object: (workspaceId: nat, documentId: nat, versionId: opt nat,
+   algorithm: text, keyDerivationContext: text, iv: blob, ciphertext:
+   blob, ciphertextHash: text) -> (VaultObjectInfo);
+}

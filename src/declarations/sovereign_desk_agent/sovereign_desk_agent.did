@@ -1,0 +1,17 @@
+type AgentBrief =
+ record {
+   answer: text;
+   approved: bool;
+   approvedAt: opt int;
+   approvedBy: opt principal;
+   createdAt: int;
+   createdBy: principal;
+   id: nat;
+   prompt: text;
+   scope: text;
+ };
+service : {
+  approve_brief: (briefId: nat) -> (AgentBrief);
+  draft_brief: (scope: text, prompt: text) -> (AgentBrief);
+  list_briefs: (offset: nat, limit: nat) -> (vec AgentBrief) query;
+}
