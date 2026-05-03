@@ -1,5 +1,9 @@
 # SovereignDesk AI
 
+[![CI](https://github.com/robert19001-cmyk/sovereign-desk-icp/actions/workflows/ci.yml/badge.svg)](https://github.com/robert19001-cmyk/sovereign-desk-icp/actions/workflows/ci.yml)
+[![Live on ICP](https://img.shields.io/badge/live-ICP%20mainnet-6b46ff)](https://v7inb-hyaaa-aaaal-qw7aq-cai.icp0.io/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 SovereignDesk AI is a first ICP MVP for a sovereign client portal: workspaces, clients, projects, tasks, document records, approvals, audit trail, and an AI Employee draft endpoint.
 
 ```text
@@ -28,6 +32,7 @@ The current implementation is intentionally canister-first and dependency-light:
 - [Reproducible build notes](docs/reproducible-build.md)
 - [Demo script](docs/demo-script.md)
 - [Case study](docs/case-study.md)
+- [Launch post](docs/launch-post.md)
 
 ## Local Canisters
 
